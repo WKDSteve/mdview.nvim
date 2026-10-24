@@ -81,7 +81,7 @@ active buffer. Details: [Preview](docs/FEATURES/PREVIEW.md#two-way-sync).
 > translation engine unless you switch it on, and the first use names the engine
 > (see [Preview](docs/FEATURES/PREVIEW.md#display-language-translated-preview)).
 >
-> **[documentation.nvim](https://github.com/StefanBartl/documentation.nvim)** —
+> **[docmap.nvim](https://github.com/StefanBartl/docmap.nvim)** —
 > holds the ecosystem architecture this plugin is the presentation half of.
 >
 > The companions are soft: mdview never loads them, and `:checkhealth mdview`
@@ -126,7 +126,7 @@ says what each one answers.
 - [Development](docs/development.md) — building from source and running the four test suites.
 - [Relay testing](docs/relay-testing.md) — driving the Go relay's endpoints by hand to pin a failure to one hop.
 - [Diff harness](docs/diff-harness.md) — benchmarking and verifying the experimental line-diff transport.
-- [Ecosystem architecture](https://github.com/StefanBartl/documentation.nvim/blob/main/docs/ECOSYSTEM.md) — how docs, static analysis and runtime split across `lib.nvim`, `documentation.nvim`, `runtime-analysis.nvim` and mdview.nvim.
+- [Ecosystem architecture](https://github.com/StefanBartl/docmap.nvim/blob/main/docs/ECOSYSTEM.md) — how docs, static analysis and runtime split across `lib.nvim`, `docmap.nvim`, `runtime-analysis.nvim` and mdview.nvim.
 - [Feedback](https://github.com/StefanBartl/mdview.nvim/issues) — bugs, feature requests and usage questions; broader discussion in [Discussions](https://github.com/StefanBartl/mdview.nvim/discussions).
 
 `:help mdview` is the same reference inside the editor.

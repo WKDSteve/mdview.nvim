@@ -42,9 +42,9 @@ The [repository README](../README.md) is the short version; this is the index.
 
 ## Not in this repository
 
-[Ecosystem architecture](https://github.com/StefanBartl/documentation.nvim/blob/main/docs/ECOSYSTEM.md)
+[Ecosystem architecture](https://github.com/StefanBartl/docmap.nvim/blob/main/docs/ECOSYSTEM.md)
 — where docs, static analysis and runtime each belong across the four pieces
-mdview.nvim is the presentation half of (`lib.nvim`, `documentation.nvim`,
+mdview.nvim is the presentation half of (`lib.nvim`, `docmap.nvim`,
 `runtime-analysis.nvim`, mdview.nvim), and why telemetry reports render through
 here rather than growing their own viewer.
 
