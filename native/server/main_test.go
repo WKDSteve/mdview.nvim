@@ -14,7 +14,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/StefanBartl/mdview.nvim/native/server/internal/relay"
+	"github.com/WKDSteve/mdview.nvim/native/server/internal/relay"
 )
 
 const testToken = "test-token"

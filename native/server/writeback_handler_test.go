@@ -8,7 +8,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/StefanBartl/mdview.nvim/native/server/internal/relay"
+	"github.com/WKDSteve/mdview.nvim/native/server/internal/relay"
 )
 
 // The checkbox and text-field bridges carry `doc`, the document the tab is

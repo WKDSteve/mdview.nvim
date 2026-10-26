@@ -11,7 +11,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/StefanBartl/mdview.nvim/native/server/internal/relay"
+	"github.com/WKDSteve/mdview.nvim/native/server/internal/relay"
 )
 
 // sharedMux builds the routes a shared relay serves, behind withClients.

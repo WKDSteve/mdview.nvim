@@ -7,7 +7,7 @@ for changing mdview itself.
 ## Clone
 
 ```bash
-git clone https://github.com/StefanBartl/mdview.nvim
+git clone https://github.com/WKDSteve/mdview.nvim
 cd mdview.nvim
 npm install
 ```
@@ -94,7 +94,7 @@ current. With lazy.nvim:
 
 ```lua
 {
-  "StefanBartl/mdview.nvim",
+  "WKDSteve/mdview.nvim",
   build = "npm ci && npm run build:go && npm run build",
   -- no dev.*/standalone.binary_path needed — the build is auto-detected
 }

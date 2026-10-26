@@ -9,7 +9,7 @@ import (
 	"github.com/quic-go/quic-go/http3"
 	"github.com/quic-go/webtransport-go"
 
-	"github.com/StefanBartl/mdview.nvim/native/server/internal/relay"
+	"github.com/WKDSteve/mdview.nvim/native/server/internal/relay"
 )
 
 // wtConn adapts a WebTransport session to relay.Conn. Each broadcast message is

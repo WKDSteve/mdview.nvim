@@ -8,7 +8,7 @@ plugin needs that answered just as often as "which command does that".
 | Where | What |
 | --- | --- |
 | **this file** | the full overview, user- *and* developer-facing |
-| [`PREVIEW.md`](PREVIEW.md) · [`RENDERING.md`](RENDERING.md) · [`OPERATIONS.md`](OPERATIONS.md) · [`SECURITY.md`](SECURITY.md) | the big topics in detail, in the [`FEATURES_FORMAT`](https://github.com/StefanBartl/docmap.nvim/blob/main/docs/FEATURES_FORMAT.md) schema |
+| [`PREVIEW.md`](PREVIEW.md) · [`RENDERING.md`](RENDERING.md) · [`OPERATIONS.md`](OPERATIONS.md) · [`SECURITY.md`](SECURITY.md) | the big topics in detail, in the [`FEATURES_FORMAT`](https://github.com/WKDSteve/docmap.nvim/blob/main/docs/FEATURES_FORMAT.md) schema |
 | [`MACHINERY.md`](MACHINERY.md) | everything with no command of its own — caches, throttling, the diff transport, lifecycle |
 
 ---

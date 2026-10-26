@@ -6,11 +6,11 @@ buffer text to the browser, which re-renders it. A useful consequence —
 > **Any Neovim plugin that edits the buffer *text* is reflected in the preview
 > for free.** You don't implement it in mdview; you just see the result.
 
-- **[markdown.nvim](https://github.com/StefanBartl/markdown.nvim)** — a
+- **[markdown.nvim](https://github.com/WKDSteve/markdown.nvim)** — a
   Markdown toolkit (TOC, reference updater, table formatter, heading shifting,
   …). Because those all transform the buffer text, running them updates the
   live preview automatically. Recommended companion, **not** a dependency.
-- **[color_my_ascii.nvim](https://github.com/StefanBartl/color_my_ascii.nvim)** —
+- **[color_my_ascii.nvim](https://github.com/WKDSteve/color_my_ascii.nvim)** —
   highlights fenced code / ASCII art **inside the Neovim buffer**. With
   `browser.highlighter = "nvim"` it also feeds the preview: mdview reads the
   colors back out through color_my_ascii's public API and paints the browser's
@@ -21,7 +21,7 @@ buffer text to the browser, which re-renders it. A useful consequence —
   it, `"nvim"` simply has nothing to send and every block falls through. See
   [RENDERING.md](FEATURES/RENDERING.md#nvim--the-buffers-own-colors).
 
-- **[spotlight.nvim](https://github.com/StefanBartl/spotlight.nvim)** —
+- **[spotlight.nvim](https://github.com/WKDSteve/spotlight.nvim)** —
   color-marks tokens in the buffer (a customer id, an error code in a log
   analysis). mdview mirrors its whole-file spotlights into the preview, in the
   same colors and live: spotlight.nvim announces every change as
@@ -31,7 +31,7 @@ buffer text to the browser, which re-renders it. A useful consequence —
   and switchable with `browser.spotlight_sync` / `:MDView spotlight`. See
   [PREVIEW.md](FEATURES/PREVIEW.md#spotlight-mirror).
 
-- **[language.nvim](https://github.com/StefanBartl/language.nvim)** —
+- **[language.nvim](https://github.com/WKDSteve/language.nvim)** —
   translates Markdown without breaking it (`translate_markdown`: code, link
   targets, front matter and HTML never go to the engine, the result has exactly
   as many lines as the source, in-page anchors follow the translated headings,

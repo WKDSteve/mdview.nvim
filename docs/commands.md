@@ -1,7 +1,7 @@
 # Commands
 
 mdview.nvim registers a single `:MDView <subcommand>` command (built via
-[`lib.nvim.bindings.usercmd.composer`](https://github.com/StefanBartl/lib.nvim)), with
+[`lib.nvim.bindings.usercmd.composer`](https://github.com/WKDSteve/lib.nvim)), with
 `<Tab>` completion for every subcommand and typed argument below.
 
 | Command | Description |
@@ -27,7 +27,7 @@ mdview.nvim registers a single `:MDView <subcommand>` command (built via
 | `:MDView write [on\|off\|toggle]` | Write in the browser: switches the cursor caret (`cursor caret`) and block editing (`edit`) together. Without a running preview, `on`/`toggle` starts one (like `:MDView start`) with both already on. `off` switches both off (the marker goes back to what it was before) and **never stops the preview**, so the same command switches writing on again. `toggle` (also no argument) is `off` when both are on, otherwise `on` — a mixed state turns both on. Optional keymap: `keymaps = { write = "<lhs>" }` in `setup()` (none by default). See [PREVIEW.md](FEATURES/PREVIEW.md#block-editing). |
 | `:MDView paragraph [on\|off\|toggle]` | Tint the block the Neovim cursor is in (paragraph, list, table, code block, quote, heading, frontmatter) in the preview, or stop; no argument toggles. Off by default. Color from the highlight group `MdviewCursorParagraph`. See [PREVIEW.md](FEATURES/PREVIEW.md#cursor-paragraph-highlight). |
 | `:MDView selection [on\|off\|toggle]` | Mirror the Neovim visual selection (`v`/`V`/`CTRL-V`) into the preview as a highlight, or stop mirroring; no argument toggles. Off by default — switch it on while presenting. See [PREVIEW.md](FEATURES/PREVIEW.md#visual-selection-mirror). |
-| `:MDView spotlight [on\|off\|toggle]` | Mirror [spotlight.nvim](https://github.com/StefanBartl/spotlight.nvim)'s highlights into the preview, or stop mirroring (and remove the highlights already shown); no argument toggles. On by default; a no-op without spotlight.nvim. See [PREVIEW.md](FEATURES/PREVIEW.md#spotlight-mirror). |
+| `:MDView spotlight [on\|off\|toggle]` | Mirror [spotlight.nvim](https://github.com/WKDSteve/spotlight.nvim)'s highlights into the preview, or stop mirroring (and remove the highlights already shown); no argument toggles. On by default; a no-op without spotlight.nvim. See [PREVIEW.md](FEATURES/PREVIEW.md#spotlight-mirror). |
 | `:MDView sync [pause\|resume\|toggle]` | Pause/resume Neovim → browser scroll sync (and the cursor marker) without tearing down the session. See [PREVIEW.md](FEATURES/PREVIEW.md#scroll-sync-pauseresume). |
 | `:MDView pin [on\|off\|toggle\|status]` | Hold the preview on the document it is showing instead of letting it follow the active buffer; no argument toggles, `off` catches the tab up with the buffer you are in. See [PREVIEW.md](FEATURES/PREVIEW.md#document-pinning). |
 | `:MDView zoom [+\|-\|reset\|<factor>]` | Adjust the preview's font-size scale; no argument reports the current zoom. See [PREVIEW.md](FEATURES/PREVIEW.md#preview-zoom). |

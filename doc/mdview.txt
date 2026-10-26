@@ -43,7 +43,7 @@ nvim-treesitter use for external binaries.
 2. REQUIREMENTS                                          *mdview-requirements*
 
   - Neovim 0.9 or later
-  - lib.nvim (https://github.com/StefanBartl/lib.nvim) — hard dependency,
+  - lib.nvim (https://github.com/WKDSteve/lib.nvim) — hard dependency,
     used for cross-platform helpers (path normalization, OS detection,
     user command / autocmd registration wrappers)
   - `curl` on PATH — downloads the relay binary and client bundle
@@ -59,8 +59,8 @@ lazy.nvim, lazy-loaded on markdown files or the plugin's own commands
 (recommended): >lua
 
   {
-    "StefanBartl/mdview.nvim",
-    dependencies = { "StefanBartl/lib.nvim" },
+    "WKDSteve/mdview.nvim",
+    dependencies = { "WKDSteve/lib.nvim" },
     ft  = { "markdown" },
     cmd = { "MDView" },
     config = function()
@@ -72,8 +72,8 @@ lazy.nvim, lazy-loaded on markdown files or the plugin's own commands
 lazy.nvim, eager (loads at startup instead of on demand): >lua
 
   {
-    "StefanBartl/mdview.nvim",
-    dependencies = { "StefanBartl/lib.nvim" },
+    "WKDSteve/mdview.nvim",
+    dependencies = { "WKDSteve/lib.nvim" },
     lazy = false,
     config = function()
       require("mdview").setup()
@@ -84,8 +84,8 @@ lazy.nvim, eager (loads at startup instead of on demand): >lua
 packer.nvim: >lua
 
   use {
-    "StefanBartl/mdview.nvim",
-    requires = { "StefanBartl/lib.nvim" },
+    "WKDSteve/mdview.nvim",
+    requires = { "WKDSteve/lib.nvim" },
     ft  = { "markdown" },
     cmd = { "MDView" },
     config = function()
@@ -187,7 +187,7 @@ Defaults: >lua
     },
 
     install = {
-      repo    = "StefanBartl/mdview.nvim", -- override to use a fork
+      repo    = "WKDSteve/mdview.nvim", -- override to use a fork
       version = "v0.4.3",                  -- pin a specific release tag
     },
 

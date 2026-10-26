@@ -19,10 +19,10 @@
 [![Lua](https://img.shields.io/badge/Lua-5.1%2FLuaJIT-2C2D72?logo=lua&logoColor=white)](https://www.lua.org)
 ![Status](https://img.shields.io/badge/status-beta-orange)
 ![Platform](https://img.shields.io/badge/platform-Linux%20%7C%20macOS%20%7C%20Windows-lightgrey)
-[![CI](https://github.com/StefanBartl/mdview.nvim/actions/workflows/ci.yml/badge.svg)](https://github.com/StefanBartl/mdview.nvim/actions/workflows/ci.yml)
-[![wkd](https://img.shields.io/badge/wkd-family-c6ff3d)](https://stefanbartl.github.io/wkd/p/mdview/)
+[![CI](https://github.com/WKDSteve/mdview.nvim/actions/workflows/ci.yml/badge.svg)](https://github.com/WKDSteve/mdview.nvim/actions/workflows/ci.yml)
+[![wkd](https://img.shields.io/badge/wkd-family-c6ff3d)](https://wkdsteve.github.io/wkd/p/mdview/)
 
-> Part of the [wkd](https://stefanbartl.github.io/wkd/) family — see this plugin's [page](https://stefanbartl.github.io/wkd/p/mdview/) on the site.
+> Part of the [wkd](https://wkdsteve.github.io/wkd/) family — see this plugin's [page](https://wkdsteve.github.io/wkd/p/mdview/) on the site.
 
 A browser-based Markdown preview for Neovim that renders nothing on the server.
 Buffer text is streamed to a browser tab and rendered client-side by a
@@ -52,18 +52,18 @@ active buffer. Details: [Preview](docs/FEATURES/PREVIEW.md#two-way-sync).
 
 ## Around it
 
-> **[markdown.nvim](https://github.com/StefanBartl/markdown.nvim)** — the
+> **[markdown.nvim](https://github.com/WKDSteve/markdown.nvim)** — the
 > editing half: TOC, reference updater, table formatter, heading shifting.
 > Because all of those transform buffer text, their edits appear in the live
 > preview automatically.
 >
-> **[color_my_ascii.nvim](https://github.com/StefanBartl/color_my_ascii.nvim)** —
+> **[color_my_ascii.nvim](https://github.com/WKDSteve/color_my_ascii.nvim)** —
 > colors fenced code inside the buffer, and with `browser.highlighter = "nvim"`
 > mdview reads those colors back out and paints the browser with them, so both
 > sides show the same thing instead of two highlighters guessing the language
 > separately. Blocks it does not paint fall through to highlight.js.
 >
-> **[spotlight.nvim](https://github.com/StefanBartl/spotlight.nvim)** —
+> **[spotlight.nvim](https://github.com/WKDSteve/spotlight.nvim)** —
 > color-marks tokens in the buffer (a customer id, an error code in a log
 > analysis). mdview mirrors those whole-file highlights into the preview, in the
 > same colors and live, so what you marked is marked in the document you share or
@@ -73,7 +73,7 @@ active buffer. Details: [Preview](docs/FEATURES/PREVIEW.md#two-way-sync).
 > or `:MDView spotlight off`. It needs a relay v0.4.0 or newer (see
 > [Preview](docs/FEATURES/PREVIEW.md#spotlight-mirror)).
 >
-> **[language.nvim](https://github.com/StefanBartl/language.nvim)** —
+> **[language.nvim](https://github.com/WKDSteve/language.nvim)** —
 > translates Markdown without breaking it. With `browser.display_lang = "en"`
 > (or `:MDView lang en`) the buffer stays as it is and the preview shows the
 > translation, line for line, painted at once from the cache and completed as
@@ -81,12 +81,12 @@ active buffer. Details: [Preview](docs/FEATURES/PREVIEW.md#two-way-sync).
 > translation engine unless you switch it on, and the first use names the engine
 > (see [Preview](docs/FEATURES/PREVIEW.md#display-language-translated-preview)).
 >
-> **[docmap.nvim](https://github.com/StefanBartl/docmap.nvim)** —
+> **[docmap.nvim](https://github.com/WKDSteve/docmap.nvim)** —
 > holds the ecosystem architecture this plugin is the presentation half of.
 >
 > The companions are soft: mdview never loads them, and `:checkhealth mdview`
 > only notes when they are present.
-> [lib.nvim](https://github.com/StefanBartl/lib.nvim) is the one real plugin
+> [lib.nvim](https://github.com/WKDSteve/lib.nvim) is the one real plugin
 > dependency — see [Requirements](docs/installation.md#requirements).
 
 ---
@@ -126,8 +126,8 @@ says what each one answers.
 - [Development](docs/development.md) — building from source and running the four test suites.
 - [Relay testing](docs/relay-testing.md) — driving the Go relay's endpoints by hand to pin a failure to one hop.
 - [Diff harness](docs/diff-harness.md) — benchmarking and verifying the experimental line-diff transport.
-- [Ecosystem architecture](https://github.com/StefanBartl/docmap.nvim/blob/main/docs/ECOSYSTEM.md) — how docs, static analysis and runtime split across `lib.nvim`, `docmap.nvim`, `runtime-analysis.nvim` and mdview.nvim.
-- [Feedback](https://github.com/StefanBartl/mdview.nvim/issues) — bugs, feature requests and usage questions; broader discussion in [Discussions](https://github.com/StefanBartl/mdview.nvim/discussions).
+- [Ecosystem architecture](https://github.com/WKDSteve/docmap.nvim/blob/main/docs/ECOSYSTEM.md) — how docs, static analysis and runtime split across `lib.nvim`, `docmap.nvim`, `runtime-analysis.nvim` and mdview.nvim.
+- [Feedback](https://github.com/WKDSteve/mdview.nvim/issues) — bugs, feature requests and usage questions; broader discussion in [Discussions](https://github.com/WKDSteve/mdview.nvim/discussions).
 
 `:help mdview` is the same reference inside the editor.
 

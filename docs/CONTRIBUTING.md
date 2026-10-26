@@ -1,7 +1,7 @@
 # Contributing to mdview.nvim
 
 Thank you for your interest! Bugs, ideas and questions are welcome in the
-[issue tracker](https://github.com/StefanBartl/mdview.nvim/issues); pull
+[issue tracker](https://github.com/WKDSteve/mdview.nvim/issues); pull
 requests very welcome.
 
 This repository is four languages in one — Lua in the editor, Go in the relay,
@@ -15,7 +15,7 @@ Editing Lua only? Build nothing. Point your plugin manager at the checkout and
 let the downloaded release binary and bundle do the rest:
 
 ```lua
-{ dir = "/path/to/mdview.nvim", dependencies = { "StefanBartl/lib.nvim" }, opts = {} }
+{ dir = "/path/to/mdview.nvim", dependencies = { "WKDSteve/lib.nvim" }, opts = {} }
 ```
 
 Touching the relay, the renderer or the client means building that component —
@@ -39,7 +39,7 @@ overrides are only for a build kept somewhere else.
   touching anything in `native/server/internal/relay/`.
 - **mdview mirrors, it does not edit.** The preview reflects buffer text; it
   does not transform it. Editing features belong in
-  [markdown.nvim](https://github.com/StefanBartl/markdown.nvim), and they reach
+  [markdown.nvim](https://github.com/WKDSteve/markdown.nvim), and they reach
   the preview for free because they change the text. The two deliberate
   exceptions are the checkbox and form-field write-backs, and both are
   opt-in config keys. The text that goes *into* the preview is read in one

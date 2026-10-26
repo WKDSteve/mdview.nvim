@@ -33,7 +33,7 @@ checksum:
 
 release:
   github:
-    owner: StefanBartl
+    owner: WKDSteve
     name: mdview.nvim
   # The client bundle (mdview-client.tar.gz) is built separately (Node/Rust,
   # not Go) and attached to the same release by the CI workflow via

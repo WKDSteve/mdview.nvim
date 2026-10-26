@@ -45,7 +45,7 @@ function M.check()
     ok("lib.nvim found (required cross-platform / logging / usercmd library)")
   else
     error_("lib.nvim not found — it is a required dependency", {
-      'Add "StefanBartl/lib.nvim" to your plugin manager\'s dependencies (see README)',
+      'Add "WKDSteve/lib.nvim" to your plugin manager\'s dependencies (see README)',
     })
   end
 
@@ -244,7 +244,7 @@ function M.check()
         warn(
           "display_lang is set, but " .. (engine.err or "language.nvim was not found") .. ": the preview stays original",
           {
-            "Install language.nvim (https://github.com/StefanBartl/language.nvim) or unset browser.display_lang",
+            "Install language.nvim (https://github.com/WKDSteve/language.nvim) or unset browser.display_lang",
           }
         )
       else

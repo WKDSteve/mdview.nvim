@@ -129,7 +129,7 @@ and the buffer next to it then agree by construction rather than by
 coincidence: same colorscheme, same highlight groups, and a `:colorscheme`
 change in Neovim reaches the browser with the next push.
 
-The colors come from [color_my_ascii.nvim](https://github.com/StefanBartl/color_my_ascii.nvim)
+The colors come from [color_my_ascii.nvim](https://github.com/WKDSteve/color_my_ascii.nvim)
 through its public read-back API (`color_my_ascii.highlight`), which returns
 the spans it painted plus their resolved `#rrggbb`. mdview collects them per
 fenced block and pushes them over `/spans` — a channel of its own, stored by

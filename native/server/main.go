@@ -27,8 +27,8 @@ import (
 
 	"nhooyr.io/websocket"
 
-	"github.com/StefanBartl/mdview.nvim/native/server/internal/relay"
-	"github.com/StefanBartl/mdview.nvim/native/server/internal/source"
+	"github.com/WKDSteve/mdview.nvim/native/server/internal/relay"
+	"github.com/WKDSteve/mdview.nvim/native/server/internal/source"
 )
 
 const maxUpdateBodyBytes = 32 << 20 // 32 MiB ceiling against runaway request bodies

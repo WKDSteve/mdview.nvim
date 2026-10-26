@@ -10,7 +10,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/StefanBartl/mdview.nvim/native/server/internal/relay"
+	"github.com/WKDSteve/mdview.nvim/native/server/internal/relay"
 )
 
 func editPost(t *testing.T, h http.HandlerFunc, key, token, body string) *httptest.ResponseRecorder {

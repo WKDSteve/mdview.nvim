@@ -8,7 +8,7 @@
 -- trace from some inner module. :checkhealth mdview reports the same.
 if not pcall(require, "lib.nvim.cross.platform.is_windows") then
   error(
-    'mdview.nvim requires lib.nvim — add "StefanBartl/lib.nvim" to your plugin '
+    'mdview.nvim requires lib.nvim — add "WKDSteve/lib.nvim" to your plugin '
       .. "manager's dependencies (see README). Run :checkhealth mdview for details."
   )
 end

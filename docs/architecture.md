@@ -2,7 +2,7 @@
 
 | Component         | Technology              | Description                                                          |
 | ----------------- | ----------------------- | ---------------------------------------------------------------------|
-| **Core**          | Lua (+ [lib.nvim](https://github.com/StefanBartl/lib.nvim)) | Handles Neovim buffer events, state management, IPC   |
+| **Core**          | Lua (+ [lib.nvim](https://github.com/WKDSteve/lib.nvim)) | Handles Neovim buffer events, state management, IPC   |
 | **Server**        | Go                      | Loopback-only relay: file/buffer text in, WebSocket fan-out — no HTML. Also serves local image bytes for the currently-previewed document (`/asset`, see below) — the one place it touches a file's raw contents rather than just text/bytes handed to it directly |
 | **Client**        | TypeScript              | Thin WebSocket glue + DOM injection of already-sanitized HTML        |
 | **Communication** | WebSocket               | Buffer text in, sanitized HTML never leaves the browser               |

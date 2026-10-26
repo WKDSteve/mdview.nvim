@@ -331,7 +331,7 @@ return {
   },
 
   install = {
-    repo = "StefanBartl/mdview.nvim",
+    repo = "WKDSteve/mdview.nvim",
     version = "v0.4.3",
   },
 

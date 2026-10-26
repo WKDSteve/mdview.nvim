@@ -5,7 +5,7 @@
 | | Needed for | Notes |
 |---|---|---|
 | Neovim 0.9+ | everything | |
-| [`lib.nvim`](https://github.com/StefanBartl/lib.nvim) | everything | declare it as a dependency, see below |
+| [`lib.nvim`](https://github.com/WKDSteve/lib.nvim) | everything | declare it as a dependency, see below |
 | `curl` | first `:MDView start` | downloads the relay binary + client bundle from GitHub Releases |
 | `tar` | first `:MDView start` | extracts the client bundle (ships with Windows 10+, macOS, Linux) |
 | a browser | viewing the preview | |
@@ -18,7 +18,7 @@ required: see [companion-plugins.md](companion-plugins.md).
 
 Declared tools (currently just `curl`) live in [install.json](install.json)
 and are read by lib.nvim's
-[deps module](https://github.com/StefanBartl/lib.nvim/blob/main/lua/lib/nvim/deps/README.md),
+[deps module](https://github.com/WKDSteve/lib.nvim/blob/main/lua/lib/nvim/deps/README.md),
 which shows a one-time popup listing them and why they're needed, on the
 first `setup()` call after installing. Repeat it any time with
 `:Lib deps show mdview.nvim`; turn it off for this plugin with
@@ -68,8 +68,8 @@ you set them:
 *Lazy-load on markdown files or the plugin's own commands (recommended):*
 ```lua
 {
-  "StefanBartl/mdview.nvim",
-  dependencies = { "StefanBartl/lib.nvim" },
+  "WKDSteve/mdview.nvim",
+  dependencies = { "WKDSteve/lib.nvim" },
   ft = { "markdown" },
   cmd = { "MDView" },
   config = function()
@@ -81,8 +81,8 @@ you set them:
 *Load at startup (eager):*
 ```lua
 {
-  "StefanBartl/mdview.nvim",
-  dependencies = { "StefanBartl/lib.nvim" },
+  "WKDSteve/mdview.nvim",
+  dependencies = { "WKDSteve/lib.nvim" },
   lazy = false,
   config = function()
     require("mdview").setup()
@@ -94,8 +94,8 @@ you set them:
 
 ```lua
 use {
-  "StefanBartl/mdview.nvim",
-  requires = { "StefanBartl/lib.nvim" },
+  "WKDSteve/mdview.nvim",
+  requires = { "WKDSteve/lib.nvim" },
   ft = { "markdown" },
   cmd = { "MDView" },
   config = function()

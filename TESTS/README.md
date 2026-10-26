@@ -1,7 +1,7 @@
 # Tests
 
 mdview.nvim's Lua/Neovim tests live under two roots, both run by
-[testing.nvim](https://github.com/StefanBartl/testing.nvim) (`.testing.lua`
+[testing.nvim](https://github.com/WKDSteve/testing.nvim) (`.testing.lua`
 names the roots, the dependencies and the isolation):
 
 - `TESTS/lua/*_spec.lua` — `describe`/`it` specs (busted dialect, real

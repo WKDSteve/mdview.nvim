@@ -221,7 +221,7 @@ rather than guessed at.
 
 ## Spotlight mirror
 
-The highlights you set with [spotlight.nvim](https://github.com/StefanBartl/spotlight.nvim)
+The highlights you set with [spotlight.nvim](https://github.com/WKDSteve/spotlight.nvim)
 show up in the preview too: mark `SYSsystosca` or `400 (Bad Request)` in Neovim
 and every occurrence in the rendered document is marked in the browser, in the
 same color, within about a second. It exists for the document you share or read

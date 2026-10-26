@@ -1,4 +1,4 @@
-module github.com/StefanBartl/mdview.nvim/native/server
+module github.com/WKDSteve/mdview.nvim/native/server
 
 go 1.26.4
 

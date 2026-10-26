@@ -15,7 +15,7 @@ import (
 	"strings"
 	"testing"
 
-	"github.com/StefanBartl/mdview.nvim/native/server/internal/relay"
+	"github.com/WKDSteve/mdview.nvim/native/server/internal/relay"
 )
 
 func mustMkdir(t *testing.T, parent, name string) string {
