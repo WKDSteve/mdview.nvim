@@ -209,3 +209,39 @@ describe("ws_client control lane", function()
     assert.are.equal(2, #started)
   end)
 end)
+
+-- The retry queue of send_markdown (no `immediate`): an answer for an entry a
+-- newer push has replaced belongs to that old entry only. Before the lanes the
+-- success of the older post cleared the newer entry (so its failure was never
+-- retried), and the failure of the older one re-sent the newer text twice.
+describe("ws_client pending queue on the content lane", function()
+  before_each(setup)
+  after_each(teardown)
+
+  it("the success of a superseded post leaves the newer entry pending", function()
+    ws.send_markdown(A, "one")
+    ws.send_markdown(A, "two")
+    local newer = ws._pending[A]
+    assert.is_truthy(newer)
+    finish(1)
+    assert.are.equal(newer, ws._pending[A], "the newer entry must stay queued until its own answer")
+    finish(2)
+    assert.is_nil(ws._pending[A])
+    assert.are.same({ "one", "two" }, bodies("update"))
+  end)
+
+  it("the failure of a superseded post does not send the newer text again", function()
+    ws.send_markdown(A, "one")
+    ws.send_markdown(A, "two")
+    finish(1, 7)
+    -- longer than the first retry delay (base_retry_ms, 150 ms by default)
+    vim.wait(400, function()
+      return false
+    end, 10)
+    finish(2)
+    vim.wait(50, function()
+      return false
+    end, 10)
+    assert.are.same({ "one", "two" }, bodies("update"))
+  end)
+end)
