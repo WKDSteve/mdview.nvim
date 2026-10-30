@@ -28,6 +28,21 @@ window is *deferred*, not dropped.
 - **Module:** `lua/mdview/bindings/autocmds/live_push.lua` (`pending_timer`, `cancel_pending`)
 - **Config:** `live_push_throttle_ms`; `BufWritePost` is never throttled.
 
+## Ordered lanes per room
+
+Two `curl` processes started a few milliseconds apart reach the relay in either
+order (measured on Windows: 3 of 60 back-to-back pairs arrived swapped). For a
+room's content that could leave an older text as the relay's last payload, for
+`/control` a stale `{"selection":false}` could land after the new selection.
+So the content posts of one room (`/update` and `/diff`) share one lane, and its
+`/control` posts another: at most one `curl` in flight per lane, the rest
+queued in order. A queued full text is replaced by a newer one (a burst costs
+the post in flight plus the newest), a queued selection by a newer selection;
+other controls are partial and all go out. A `curl` that never exits frees its
+lane after `LANE_STALL_MS` (5 s).
+
+- **Module:** `lua/mdview/adapter/ws_client.lua` (`lane_post`, `reset_lanes`)
+
 ## Line-diff transport (experimental)
 
 Instead of the whole buffer, a line-edit description can be transmitted. Full

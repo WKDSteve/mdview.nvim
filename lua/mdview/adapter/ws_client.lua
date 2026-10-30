@@ -330,6 +330,123 @@ local function http_post_nonblocking(url, body, cb)
   return jid
 end
 
+-- ---------------------------------------------------------------------------
+-- Ordered lanes. Every POST is its own curl process, and two processes started
+-- a few milliseconds apart reach the relay in whichever order Windows (and its
+-- virus scanner) happens to finish starting them. For the room's content that
+-- can leave an older text as the relay's LastPayload; for /control a stale
+-- `{"selection":false}` can land after the new selection. So the posts of one
+-- room and one channel go through a lane: at most one curl in flight, the rest
+-- queued in order. While queued, a full state replaces what it supersedes, so
+-- a burst costs two curls (the one in flight and the newest), not one per push.
+-- ---------------------------------------------------------------------------
+
+-- A curl that neither answers nor exits must not hold its lane for ever: after
+-- this long the next entry goes out anyway (the relay is local; a healthy POST
+-- takes milliseconds, a slow first start a few hundred).
+M.LANE_STALL_MS = M.LANE_STALL_MS or 5000
+
+---@class mdview.ws_client.LaneEntry
+---@field url string
+---@field body string
+---@field cb fun(exit_code: integer, stdout_lines: string[]|nil, stderr_lines: string[]|nil)|nil
+---@field supersedes boolean|nil # a full state: every entry queued before it is dropped
+---@field merge_key string|nil # a queued entry with the same merge_key is dropped in favour of this one
+---@field on_drop fun()|nil # called when the entry is dropped without being sent
+
+---@class mdview.ws_client.Lane
+---@field busy boolean
+---@field token table|nil # identifies the in-flight post, so a late exit after the stall watchdog is ignored
+---@field queue mdview.ws_client.LaneEntry[]
+
+---@type table<string, mdview.ws_client.Lane>
+M._lanes = {}
+
+---@param entry mdview.ws_client.LaneEntry
+local function drop_entry(entry)
+  if entry.on_drop then
+    pcall(entry.on_drop)
+  end
+end
+
+---@param name string
+local function lane_pump(name)
+  local lane = M._lanes[name]
+  if not lane or lane.busy then
+    return
+  end
+  local entry = table.remove(lane.queue, 1)
+  if not entry then
+    M._lanes[name] = nil
+    return
+  end
+  local token = {}
+  lane.busy, lane.token = true, token
+  local function release()
+    if lane.token ~= token then
+      return -- already released (stall watchdog) or the lanes were reset
+    end
+    lane.busy, lane.token = false, nil
+    lane_pump(name)
+  end
+  http_post_nonblocking(entry.url, entry.body, function(code, stdout_lines, stderr_lines)
+    local ok, err = true, nil
+    if entry.cb then
+      ok, err = pcall(entry.cb, code, stdout_lines, stderr_lines)
+    end
+    release()
+    if not ok then
+      error(err, 0)
+    end
+  end)
+  if lane.token == token then
+    vim.defer_fn(release, M.LANE_STALL_MS)
+  end
+end
+
+--- Queue a POST on lane `name` and send it as soon as the lane is free.
+---@param name string
+---@param entry mdview.ws_client.LaneEntry
+---@return nil
+local function lane_post(name, entry)
+  local lane = M._lanes[name]
+  if not lane then
+    lane = { busy = false, queue = {} }
+    M._lanes[name] = lane
+  end
+  local kept = {}
+  for _, queued in ipairs(lane.queue) do
+    if entry.supersedes or (entry.merge_key ~= nil and queued.merge_key == entry.merge_key) then
+      drop_entry(queued)
+    else
+      kept[#kept + 1] = queued
+    end
+  end
+  kept[#kept + 1] = entry
+  lane.queue = kept
+  lane_pump(name)
+end
+
+---@param channel "content"|"control"
+---@param key string
+---@return string
+local function lane_name(channel, key)
+  return channel .. "\0" .. normalize.path_for_url(key)
+end
+
+--- Drop every queued (not yet sent) lane entry; called on :MDView stop. A post
+--- already in flight finishes on its own, its exit no longer starts anything.
+---@return nil
+function M.reset_lanes()
+  for _, lane in pairs(M._lanes) do
+    for _, queued in ipairs(lane.queue) do
+      drop_entry(queued)
+    end
+    lane.queue, lane.token, lane.busy = {}, nil, false
+  end
+  M._lanes = {}
+end
+
 -- Replace or augment try_send_pending callback handling to log response body.
 ---@internal
 ---@param path string # file path whose pending markdown should be sent
@@ -351,7 +468,10 @@ local function try_send_pending(path)
   entry.tries = (entry.tries or 0) + 1
 
   local url = update_url_for(path)
-  http_post_nonblocking(url, entry.markdown, function(code, stdout_lines, stderr_lines)
+  local function on_exit(code, stdout_lines, stderr_lines)
+    if M._pending[path] ~= entry then
+      return -- superseded by a newer push while this one was out: that one is (or was) sent
+    end
     if code == 0 then
       -- success: clear queue
       M._pending[path] = nil
@@ -387,7 +507,18 @@ local function try_send_pending(path)
         end)
       end
     end
-  end)
+  end
+  lane_post(lane_name("content", path), {
+    url = url,
+    body = entry.markdown,
+    cb = on_exit,
+    supersedes = true,
+    on_drop = function()
+      if M._pending[path] == entry then
+        M._pending[path] = nil
+      end
+    end,
+  })
 end
 
 -- Public: send markdown to server.
@@ -403,7 +534,9 @@ function M.send_markdown(path, markdown, opts)
   end
 
   if opts.immediate then
-    http_post_nonblocking(update_url_for(path), markdown, function(code, stdout_lines, stderr_lines)
+    -- Through the room's content lane: a full text supersedes whatever of the
+    -- room is still queued, and it cannot overtake the post already in flight.
+    local function on_exit(code, stdout_lines, stderr_lines)
       if code == 0 then
         vim.schedule(function()
           local body = stdout_lines and table.concat(stdout_lines, "\n"):sub(1, 200) or "(empty body)"
@@ -421,7 +554,11 @@ function M.send_markdown(path, markdown, opts)
           end
         end)
       end
-    end)
+    end
+    lane_post(
+      lane_name("content", path),
+      { url = update_url_for(path), body = markdown, cb = on_exit, supersedes = true }
+    )
     return
   end
 
@@ -552,7 +689,9 @@ function M.send_content(key, lines, opts)
   end
   local nv = ver + 1
   local env = "\3" .. vim.json.encode({ t = "d", v = nv, base = ver, edits = { edit } })
-  http_post_nonblocking(diff_url_for(key), env, function() end) -- via /diff (ephemeral)
+  -- via /diff (ephemeral). Same lane as the room's fulls: a diff builds on the
+  -- version before it, so it must neither overtake that one nor be overtaken.
+  lane_post(lane_name("content", key), { url = diff_url_for(key), body = env })
   M._diff_ver[key] = nv
   M._diff_last[key] = lines
   M._diff_since[key] = since + 1
@@ -571,6 +710,20 @@ function M.send_doc(key, doc_path)
   http_post_nonblocking(doc_url_for(key), doc_path, function() end)
 end
 
+-- Control objects are partial (`{"zoom":1.2}` says nothing about the cursor),
+-- so queued ones are sent in order, none dropped -- except a selection: a
+-- `{"selection":…}` alone is the whole selection state, so a newer one replaces
+-- a still-queued older one (a drag in visual mode would otherwise queue up).
+---@param json string
+---@return string|nil
+local function control_merge_key(json)
+  local ok, obj = pcall(vim.json.decode, json)
+  if ok and type(obj) == "table" and obj.selection ~= nil and next(obj, next(obj)) == nil then
+    return "selection"
+  end
+  return nil
+end
+
 -- Public: push a live preview-control update (a small JSON string, e.g.
 -- '{"cursor":"caret"}' or '{"zoom":1.2}') to `key`'s room, so runtime commands
 -- change the open tab without a reload. Fire-and-forget — a control update is a
@@ -583,7 +736,7 @@ function M.send_control(key, json)
   if type(key) ~= "string" or key == "" or type(json) ~= "string" or json == "" then
     return
   end
-  http_post_nonblocking(control_url_for(key), json, function() end)
+  lane_post(lane_name("control", key), { url = control_url_for(key), body = json, merge_key = control_merge_key(json) })
 end
 
 --- Public: push the buffer's own fenced-code highlighting to `key`'s room, so

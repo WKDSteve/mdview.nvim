@@ -76,6 +76,8 @@ function M.stop(close_browser_override)
   -- Drop line-diff version/basis state so the next session starts from a full
   -- snapshot instead of diffing against a dead session's content.
   require("mdview.adapter.ws_client").reset_diff_state()
+  -- Nor send a dead session's queued pushes once its last curl returns.
+  require("mdview.adapter.ws_client").reset_lanes()
 
   session.shutdown()
 
