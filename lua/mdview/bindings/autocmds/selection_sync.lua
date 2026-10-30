@@ -77,15 +77,17 @@ function M.current()
   local cursor = vim.fn.getpos(".")
   local sl, sc = anchor[2], anchor[3]
   local el, ec = cursor[2], cursor[3]
-  -- Whether the cursor sits right of the anchor: only then does an exclusive
-  -- blockwise selection lose a column (measured against Neovim's own `y`).
-  local cursor_right = ec > sc
 
   -- Either end can be the earlier one (the cursor may sit at the top of the
   -- selection); the client only ever draws forwards.
   if el < sl or (el == sl and ec < sc) then
     sl, sc, el, ec = el, ec, sl, sc
   end
+
+  -- Whether the later end (in buffer order, cursor or anchor alike) sits right
+  -- of the earlier one: only then does an exclusive blockwise selection lose a
+  -- column (measured against Neovim's own `y`).
+  local later_right = ec > sc
 
   if shape == "block" then
     -- A blockwise selection is a column range applied to every line, and the
@@ -96,12 +98,13 @@ function M.current()
   -- 'selection' = "exclusive" leaves the last character out, the way Neovim
   -- itself selects: never for a linewise selection (whole lines either way),
   -- never when both ends are the same position (`v` alone still selects the
-  -- character under the cursor), and blockwise only when the cursor is right
-  -- of the anchor. Dropping the end unconditionally made `V` (and `v`) without
-  -- a cursor move look like no selection at all.
+  -- character under the cursor), and blockwise only when the later end is
+  -- right of the earlier one (then the rightmost column goes). Dropping the end
+  -- unconditionally made `V` (and `v`) without a cursor move look like no
+  -- selection at all.
   if vim.o.selection == "exclusive" and shape ~= "line" then
     local single = sl == el and sc == ec
-    local drop = shape == "char" and not single or shape == "block" and cursor_right
+    local drop = shape == "char" and not single or shape == "block" and later_right
     if drop then
       ec = ec - 1
       if ec < 1 then

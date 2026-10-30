@@ -102,11 +102,12 @@ describe("selection_sync.current", function()
   -- `V` and `v` without a cursor move into "no selection": the preview stayed
   -- empty until the cursor moved once.
   ---@param keys string
+  ---@param pos? integer[] start cursor, default { 1, 2 } (the first "l" of "hello")
   ---@return table|nil
-  local function exclusive(keys)
+  local function exclusive(keys, pos)
     leave_visual()
     vim.o.selection = "exclusive"
-    vim.api.nvim_win_set_cursor(0, { 1, 2 })
+    vim.api.nvim_win_set_cursor(0, pos or { 1, 2 })
     vim.cmd("normal! " .. keys)
     local sel = selection_sync.current()
     leave_visual()
@@ -154,6 +155,23 @@ describe("selection_sync.current", function()
   it("exclusive: CTRL-V with the cursor right of the anchor drops the cursor column", function()
     local sel = exclusive("\22jl")
     assert.are.same({ 3, 3 }, { sel.sc, sel.ec })
+  end)
+
+  -- Blockwise, what decides is the LATER end in buffer order, not the cursor:
+  -- when it sits right of the earlier end, the rightmost column goes.
+  it("exclusive: CTRL-V moved left on the same line drops the anchor column", function()
+    local sel = exclusive("\22h") -- Neovim yanks "e"
+    assert.are.same({ 1, 2, 1, 2 }, { sel.sl, sel.sc, sel.el, sel.ec })
+  end)
+
+  it("exclusive: CTRL-V up and left drops the anchor column", function()
+    local sel = exclusive("\22kh", { 2, 2 }) -- Neovim yanks "e" and "e"
+    assert.are.same({ 1, 2, 2, 2 }, { sel.sl, sel.sc, sel.el, sel.ec })
+  end)
+
+  it("exclusive: CTRL-V up and right keeps both columns", function()
+    local sel = exclusive("\22kl", { 2, 2 }) -- Neovim yanks "ll" and "co"
+    assert.are.same({ 1, 3, 2, 4 }, { sel.sl, sel.sc, sel.el, sel.ec })
   end)
 end)
 
