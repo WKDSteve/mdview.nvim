@@ -115,3 +115,160 @@ describe("server_args.spawnable", function()
     end)
   end)
 end)
+
+describe("server_args.resolve: dev relay with the release client bundle", function()
+  -- resolve_binary() and resolve_web_root() decide independently. A checkout
+  -- with a built relay (native/server/mdview-server) but no dist/client — it is
+  -- gitignored, so `git pull` never brings one — used to pair the dev relay
+  -- with the client bundle of the pinned release without a word, and client
+  -- features newer than that release (`:MDView edit`) silently did nothing.
+  local install = require("mdview.adapter.install")
+  local config = require("mdview.config")
+
+  --- Run `fn(root, notes)` against a fake checkout at `root` whose release
+  --- assets live under `root/release`; `notes` collects WARN notifications.
+  ---@param fn fun(root: string, notes: string[])
+  ---@return nil
+  local function with_checkout(fn)
+    with_tempdir(function(root)
+      vim.fn.mkdir(root .. "/native/server", "p")
+      vim.fn.mkdir(root .. "/release/client", "p")
+      local notes = {}
+      local saved = {
+        root = server_args._root,
+        dev = config.defaults.dev,
+        env_bin = vim.env.MDVIEW_DEV_BINARY,
+        env_web = vim.env.MDVIEW_DEV_WEB_ROOT,
+        ensure_binary = install.ensure_binary,
+        ensure_client_bundle = install.ensure_client_bundle,
+        notify = vim.notify,
+      }
+      server_args._root = root
+      server_args._reset_warned()
+      config.defaults.dev = {}
+      vim.env.MDVIEW_DEV_BINARY = nil
+      vim.env.MDVIEW_DEV_WEB_ROOT = nil
+      install.ensure_binary = function()
+        return touch_executable(root .. "/release/mdview-server" .. (windows and ".exe" or "")), nil
+      end
+      install.ensure_client_bundle = function()
+        return root .. "/release/client", nil
+      end
+      vim.notify = function(msg, level)
+        if level == vim.log.levels.WARN then
+          notes[#notes + 1] = msg
+        end
+      end
+      local ok, err = pcall(fn, root, notes)
+      vim.notify = saved.notify
+      install.ensure_binary = saved.ensure_binary
+      install.ensure_client_bundle = saved.ensure_client_bundle
+      vim.env.MDVIEW_DEV_BINARY = saved.env_bin
+      vim.env.MDVIEW_DEV_WEB_ROOT = saved.env_web
+      config.defaults.dev = saved.dev
+      server_args._root = saved.root
+      server_args._reset_warned()
+      if not ok then
+        error(err, 0)
+      end
+    end)
+  end
+
+  ---@param root string
+  ---@return string
+  local function build_relay(root)
+    return touch_executable(root .. "/native/server/mdview-server" .. (windows and ".exe" or ""))
+  end
+
+  ---@param root string
+  ---@return string dir
+  local function build_client(root)
+    local dir = root .. "/dist/client"
+    vim.fn.mkdir(dir, "p")
+    touch_executable(dir .. "/index.html")
+    return dir
+  end
+
+  ---@param args string[]
+  ---@return string|nil
+  local function web_root_arg(args)
+    for i, a in ipairs(args) do
+      if a == "--web-root" then
+        return args[i + 1]
+      end
+    end
+    return nil
+  end
+
+  it("warns once, naming npm run build:client, for a local relay without dist/client", function()
+    with_checkout(function(root, notes)
+      local relay = build_relay(root)
+      local cmd, args = server_args.resolve()
+      assert.are.equal(relay, cmd)
+      assert.are.equal(root .. "/release/client", web_root_arg(args))
+      assert.are.equal(1, #notes)
+      assert.is_truthy(notes[1]:find("npm run build:client", 1, true))
+
+      server_args.resolve()
+      assert.are.equal(1, #notes)
+    end)
+  end)
+
+  it("warns for dev.binary_path with the release bundle too", function()
+    with_checkout(function(root, notes)
+      local relay = touch_executable(root .. "/elsewhere" .. (windows and ".exe" or ""))
+      config.defaults.dev = { binary_path = relay }
+      local cmd = server_args.resolve()
+      -- expand() turns the separators native; compare the paths, not spellings.
+      assert.are.equal(vim.fs.normalize(relay), vim.fs.normalize(cmd))
+      assert.are.equal(1, #notes)
+      assert.is_truthy(notes[1]:find("npm run build:client", 1, true))
+    end)
+  end)
+
+  it("stays quiet when the checkout has its own dist/client", function()
+    with_checkout(function(root, notes)
+      build_relay(root)
+      local dir = build_client(root)
+      local _, args = server_args.resolve()
+      assert.are.equal(dir, web_root_arg(args))
+      assert.are.equal(0, #notes)
+    end)
+  end)
+
+  it("stays quiet for release relay with release bundle", function()
+    with_checkout(function(_, notes)
+      server_args.resolve()
+      assert.are.equal(0, #notes)
+    end)
+  end)
+
+  it("warns when dist/client is much older than the local relay", function()
+    with_checkout(function(root, notes)
+      local relay = build_relay(root)
+      local dir = build_client(root)
+      local uv = vim.uv or vim.loop
+      local now = os.time()
+      uv.fs_utime(dir .. "/index.html", now - 3 * 86400, now - 3 * 86400)
+      uv.fs_utime(relay, now, now)
+      server_args.resolve()
+      assert.are.equal(1, #notes)
+      assert.is_truthy(notes[1]:find("older than the relay", 1, true))
+    end)
+  end)
+
+  it("sources() reports the mix without downloading, and health.check() survives it", function()
+    with_checkout(function(root)
+      build_relay(root)
+      install.ensure_client_bundle = function()
+        error("sources() must not download")
+      end
+      local src = server_args.sources()
+      assert.are.equal("local", src.binary.source)
+      assert.are.equal("release", src.web_root.source)
+      assert.is_truthy(server_args.mismatch(src.binary, src.web_root))
+      local ok, err = pcall(require("mdview.health").check)
+      assert.is_true(ok, tostring(err))
+    end)
+  end)
+end)

@@ -13,11 +13,19 @@ local uv = vim.uv or vim.loop
 
 local M = {}
 
+-- Test seam: when set, stands in for this checkout's root, so a spec can model
+-- a checkout with a built relay but no `dist/client`.
+---@type string|nil
+M._root = nil
+
 --- Absolute path to this mdview.nvim checkout, derived from this file's own
 --- location (<root>/lua/mdview/adapter/server_args.lua). Lets the plugin find a
 --- build sitting inside its own checkout without the user hardcoding a path.
 ---@return string
 local function plugin_root()
+  if M._root then
+    return M._root
+  end
   local this = debug.getinfo(1, "S").source:sub(2)
   return vim.fs.normalize(vim.fn.fnamemodify(this, ":p:h:h:h:h"))
 end
@@ -106,14 +114,20 @@ local function local_built_web_root()
   return nil
 end
 
---- Relay binary the normal `:MDView start` path spawns, in precedence order:
---- explicit `dev.binary_path`, then `$MDVIEW_DEV_BINARY` (the only way a
---- detached instance — scripts/minimal_init.lua loads none of the user's Lua
---- config — can reach one), then a build inside this checkout (zero-config dev),
---- then whatever `install` manages (downloaded release).
----@internal
----@return string|nil path, string|nil err
-local function resolve_binary()
+---@alias mdview.AssetSource "dev"|"local"|"release"
+--- "dev" = an explicit override (`dev.*` option or `$MDVIEW_DEV_*`), "local" =
+--- a build inside this checkout, "release" = what `install` manages.
+
+---@class mdview.AssetChoice
+---@field path string|nil resolved path (for "release" possibly not downloaded yet)
+---@field source mdview.AssetSource
+
+--- The relay binary that wins over the release, if any: explicit
+--- `dev.binary_path`, then `$MDVIEW_DEV_BINARY` (the only way a detached
+--- instance — scripts/minimal_init.lua loads none of the user's Lua config —
+--- can reach one), then a build inside this checkout (zero-config dev).
+---@return string|nil path, mdview.AssetSource|nil source
+local function dev_binary()
   local dev = require("mdview.config").defaults.dev or {}
   local override = dev.binary_path
   if not (type(override) == "string" and override ~= "") then
@@ -123,7 +137,7 @@ local function resolve_binary()
     local path = vim.fn.expand(override)
     local usable = spawnable(path)
     if usable then
-      return usable, nil
+      return usable, "dev"
     end
     -- A stale/typo'd override shouldn't brick start — warn and fall through
     -- to the auto-detected build / release, which usually works.
@@ -134,17 +148,15 @@ local function resolve_binary()
   end
   local built = local_built_binary()
   if built then
-    return built, nil
+    return built, "local"
   end
-  return install.ensure_binary()
+  return nil, nil
 end
 
---- Client bundle dir the normal `:MDView start` path passes as --web-root, same
---- precedence as resolve_binary: `dev.web_root`, `$MDVIEW_DEV_WEB_ROOT`, a build
---- inside this checkout, else whatever `install` manages.
----@internal
----@return string|nil path, string|nil err
-local function resolve_web_root()
+--- The client bundle that wins over the release, if any: `dev.web_root`,
+--- `$MDVIEW_DEV_WEB_ROOT`, then a build inside this checkout.
+---@return string|nil path, mdview.AssetSource|nil source
+local function dev_web_root()
   local dev = require("mdview.config").defaults.dev or {}
   local override = dev.web_root
   if not (type(override) == "string" and override ~= "") then
@@ -153,15 +165,129 @@ local function resolve_web_root()
   if type(override) == "string" and override ~= "" then
     local path = vim.fn.expand(override)
     if vim.fn.isdirectory(path) == 1 then
-      return path, nil
+      return path, "dev"
     end
     notify(("[mdview] dev.web_root is not a directory, ignoring it: %q"):format(path), vim.log.levels.WARN)
   end
   local built = local_built_web_root()
   if built then
-    return built, nil
+    return built, "local"
   end
-  return install.ensure_client_bundle()
+  return nil, nil
+end
+
+--- Relay binary the normal `:MDView start` path spawns: the dev one if there
+--- is one, else whatever `install` manages (downloaded release).
+---@internal
+---@return string|nil path, string|nil err, mdview.AssetSource|nil source
+local function resolve_binary()
+  local path, source = dev_binary()
+  if path then
+    return path, nil, source
+  end
+  local installed, err = install.ensure_binary()
+  return installed, err, "release"
+end
+
+--- Client bundle dir the normal `:MDView start` path passes as --web-root,
+--- same precedence as resolve_binary.
+---@internal
+---@return string|nil path, string|nil err, mdview.AssetSource|nil source
+local function resolve_web_root()
+  local path, source = dev_web_root()
+  if path then
+    return path, nil, source
+  end
+  local installed, err = install.ensure_client_bundle()
+  return installed, err, "release"
+end
+
+--- Which binary and bundle `:MDView start` would use, without downloading
+--- anything (a release asset that is not installed yet still gets its path).
+--- Read-only — for :checkhealth.
+---@return { binary: mdview.AssetChoice, web_root: mdview.AssetChoice }
+function M.sources()
+  local status = install.status()
+  local bin, bin_source = dev_binary()
+  local web, web_source = dev_web_root()
+  return {
+    binary = { path = bin or status.binary_path, source = bin_source or "release" },
+    web_root = { path = web or status.client_dir, source = web_source or "release" },
+  }
+end
+
+-- How much older dist/client may be than the local relay before it counts as
+-- stale. `npm run build` writes both within minutes; an hour leaves room for a
+-- slow machine and still catches a bundle from an earlier checkout state.
+local STALE_SECONDS = 3600
+
+---@param path string|nil
+---@return integer|nil
+local function mtime(path)
+  local stat = path and uv.fs_stat(path)
+  return stat and stat.mtime and stat.mtime.sec or nil
+end
+
+--- Why the chosen relay and client bundle do not belong together, or nil.
+---
+--- `resolve_binary` and `resolve_web_root` decide independently: a checkout
+--- with `native/server/mdview-server(.exe)` but no (gitignored) `dist/client`
+--- runs the dev relay against the client bundle of the pinned release. Client
+--- features newer than that release (e.g. `:MDView edit`) then do nothing,
+--- without any error anywhere — the browser simply ignores the message.
+---@param binary mdview.AssetChoice
+---@param web_root mdview.AssetChoice
+---@return string|nil
+function M.mismatch(binary, web_root)
+  if binary.source == "release" then
+    return nil
+  end
+  if web_root.source == "release" then
+    local version = (require("mdview.config").defaults.install or {}).version
+    return (
+      "[mdview] a dev relay (%s) runs with the client bundle of release %s (%s); client features newer "
+      .. "than that release will silently do nothing. Run `npm run build:client` in the mdview.nvim "
+      .. "checkout, or set dev.web_root."
+    ):format(tostring(binary.path), tostring(version), tostring(web_root.path))
+  end
+  if web_root.source == "local" then
+    local bin_time = mtime(binary.path)
+    local web_time = mtime(web_root.path and (web_root.path .. "/index.html"))
+    if bin_time and web_time and bin_time - web_time > STALE_SECONDS then
+      return (
+        "[mdview] the local client bundle %s (built %s) is older than the relay %s (built %s); "
+        .. "run `npm run build:client` to bring it up to date."
+      ):format(
+        web_root.path,
+        os.date("%Y-%m-%d %H:%M", web_time),
+        binary.path,
+        os.date("%Y-%m-%d %H:%M", bin_time)
+      )
+    end
+  end
+  return nil
+end
+
+-- Messages already shown this session: `:MDView start` warns once, not on
+-- every restart of the relay.
+local warned = {}
+
+---@param binary mdview.AssetChoice
+---@param web_root mdview.AssetChoice
+---@return nil
+local function warn_mismatch_once(binary, web_root)
+  local msg = M.mismatch(binary, web_root)
+  if msg and not warned[msg] then
+    warned[msg] = true
+    notify(msg, vim.log.levels.WARN)
+  end
+end
+
+--- Forget which mismatch warnings were shown (tests).
+---@internal
+---@return nil
+function M._reset_warned()
+  warned = {}
 end
 
 --- @param cwd_override string|nil # takes precedence over mdview.config.defaults.server_cwd, e.g. from `:MDView start cwd=...`
@@ -173,15 +299,20 @@ function M.resolve(cwd_override)
   local defaults = require("mdview.config").defaults
   local state = require("mdview.core.state")
 
-  local bin_path, bin_err = resolve_binary()
+  local bin_path, bin_err, bin_source = resolve_binary()
   if not bin_path then
     return nil, nil, nil, "failed to resolve mdview-server binary: " .. tostring(bin_err)
   end
 
-  local web_root, web_err = resolve_web_root()
+  local web_root, web_err, web_source = resolve_web_root()
   if not web_root then
     return nil, nil, nil, "failed to resolve mdview client bundle: " .. tostring(web_err)
   end
+
+  warn_mismatch_once(
+    { path = bin_path, source = bin_source or "release" },
+    { path = web_root, source = web_source or "release" }
+  )
 
   local token = gen_token()
   state.set_token(token)

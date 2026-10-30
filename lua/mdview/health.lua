@@ -106,6 +106,33 @@ function M.check()
     info("client bundle not yet installed — will be downloaded on first `:MDView start`")
   end
 
+  -- Which relay and bundle `:MDView start` would actually pair. A dev relay
+  -- with the release bundle (e.g. a checkout without `dist/client`) loses every
+  -- client feature newer than that release, silently — so name both sources.
+  do
+    local server_args = require("mdview.adapter.server_args")
+    local src = server_args.sources()
+    local version = (require("mdview.config").defaults.install or {}).version
+    ---@param choice mdview.AssetChoice
+    ---@param file string|nil file whose mtime dates a dev asset
+    ---@return string
+    local function describe(choice, file)
+      if choice.source == "release" then
+        return ("release %s (%s)"):format(tostring(version), tostring(choice.path))
+      end
+      local stat = (vim.uv or vim.loop).fs_stat(file or choice.path or "")
+      local built = stat and os.date("%Y-%m-%d %H:%M", stat.mtime.sec) or "date unknown"
+      local kind = choice.source == "local" and "local build" or "dev override"
+      return ("%s, built %s (%s)"):format(kind, built, tostring(choice.path))
+    end
+    ok("relay binary: " .. describe(src.binary))
+    ok("client bundle: " .. describe(src.web_root, src.web_root.path and (src.web_root.path .. "/index.html")))
+    local mismatch = server_args.mismatch(src.binary, src.web_root)
+    if mismatch then
+      warn(mismatch, { "Run `npm run build:client` in the mdview.nvim checkout, then :MDView stop / :MDView start" })
+    end
+  end
+
   -- Config & opt-in features ------------------------------------------------
   start("mdview.nvim: configuration")
 
