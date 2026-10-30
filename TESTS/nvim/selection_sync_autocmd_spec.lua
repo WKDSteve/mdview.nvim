@@ -81,6 +81,39 @@ describe("selection_sync autocmds", function()
     assert.are.equal(false, sent[#sent])
   end)
 
+  -- Entering a visual mode without moving: the ModeChanged push alone must
+  -- describe the one-line selection, or the tab shows nothing until the
+  -- cursor moves (reported for `V`).
+  for _, case in ipairs({ { "V", "line" }, { "v", "char" }, { "<C-v>", "block" } }) do
+    it("sends the selection on entering " .. case[2] .. "wise visual mode without moving", function()
+      feed("<Esc>")
+      selection_sync.reset()
+      selection_sync.send_current_selection(buf) -- the tab knows: no selection
+      sent = {}
+      vim.api.nvim_win_set_cursor(0, { 2, 3 })
+      feed(case[1])
+      local last = sent[#sent]
+      feed("<Esc>")
+      assert.is_true(type(last) == "table", "no selection pushed on entering " .. case[2])
+      assert.are.equal(case[2], last.mode)
+      assert.are.same({ 2, 4, 2, 4 }, { last.sl, last.sc, last.el, last.ec })
+    end)
+
+    it("sends the selection again on re-entering " .. case[2] .. "wise mode on the same spot", function()
+      feed("<Esc>")
+      selection_sync.reset()
+      vim.api.nvim_win_set_cursor(0, { 3, 1 })
+      feed(case[1])
+      feed("<Esc>")
+      sent = {}
+      feed(case[1])
+      local last = sent[#sent]
+      feed("<Esc>")
+      assert.is_true(type(last) == "table", "no selection pushed on re-entering " .. case[2])
+      assert.are.same({ 3, 2, 3, 2 }, { last.sl, last.sc, last.el, last.ec })
+    end)
+  end
+
   it("sends nothing at all in normal mode", function()
     feed("<Esc>")
     selection_sync.reset()

@@ -96,6 +96,65 @@ describe("selection_sync.current", function()
     vim.o.selection = "inclusive"
     assert.are.equal(4, sel.ec)
   end)
+
+  -- 'selection' = "exclusive" must select what Neovim itself selects (its own
+  -- `y` is the reference). Dropping the last character unconditionally turned
+  -- `V` and `v` without a cursor move into "no selection": the preview stayed
+  -- empty until the cursor moved once.
+  ---@param keys string
+  ---@return table|nil
+  local function exclusive(keys)
+    leave_visual()
+    vim.o.selection = "exclusive"
+    vim.api.nvim_win_set_cursor(0, { 1, 2 })
+    vim.cmd("normal! " .. keys)
+    local sel = selection_sync.current()
+    leave_visual()
+    vim.o.selection = "inclusive"
+    return sel
+  end
+
+  it("exclusive: V on one line still selects that line", function()
+    local sel = exclusive("V")
+    assert.is_not_nil(sel)
+    assert.are.same({ "line", 1, 3, 1, 3 }, { sel.mode, sel.sl, sel.sc, sel.el, sel.ec })
+  end)
+
+  it("exclusive: V over two lines keeps both lines whole", function()
+    local sel = exclusive("Vj")
+    assert.are.same({ "line", 1, 2 }, { sel.mode, sel.sl, sel.el })
+  end)
+
+  it("exclusive: v without a move selects the character under the cursor", function()
+    local sel = exclusive("v")
+    assert.is_not_nil(sel)
+    assert.are.same({ "char", 1, 3, 1, 3 }, { sel.mode, sel.sl, sel.sc, sel.el, sel.ec })
+  end)
+
+  it("exclusive: a backwards v drops the anchor, the later end", function()
+    local sel = exclusive("vh") -- Neovim yanks "e" of "hello"
+    assert.are.same({ 1, 2, 1, 2 }, { sel.sl, sel.sc, sel.el, sel.ec })
+  end)
+
+  it("exclusive: v ending on the first column of a later line stops at the line before", function()
+    local sel = exclusive("vj0")
+    assert.are.same({ 1, 3, 1, 11 }, { sel.sl, sel.sc, sel.el, sel.ec })
+  end)
+
+  it("exclusive: CTRL-V without a move selects one column", function()
+    local sel = exclusive("\22j")
+    assert.are.same({ "block", 3, 3 }, { sel.mode, sel.sc, sel.ec })
+  end)
+
+  it("exclusive: CTRL-V with the cursor left of the anchor keeps both columns", function()
+    local sel = exclusive("\22jh") -- Neovim yanks "el" on both lines
+    assert.are.same({ 2, 3 }, { sel.sc, sel.ec })
+  end)
+
+  it("exclusive: CTRL-V with the cursor right of the anchor drops the cursor column", function()
+    local sel = exclusive("\22jl")
+    assert.are.same({ 3, 3 }, { sel.sc, sel.ec })
+  end)
 end)
 
 describe("selection_sync.send_current_selection", function()
