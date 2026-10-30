@@ -62,11 +62,12 @@ describe("usrcmds.attach", function()
 
   it("describes every flag, key=value pair and argument of :MDView in lib.nvim's option float", function()
     local composer = require("lib.nvim.bindings.usercmd.composer")
-    -- A lib.nvim older than `help.undocumented` cannot answer the question; that is a missing
-    -- feature of the dependency, not a defect of this plugin.
-    if type(composer.help.undocumented) ~= "function" then
-      return
-    end
+    -- The case needs `help.undocumented` from lib.nvim: an older checkout fails here by name
+    -- instead of skipping the case silently (NEW-43).
+    assert(
+      type(composer.help.undocumented) == "function",
+      "lib.nvim lacks composer.help.undocumented: update lib.nvim, this case cannot run without it"
+    )
 
     usrcmds.attach()
     assert.is_not_nil(composer.registry().MDView, ":MDView is registered through the composer")
@@ -82,9 +83,10 @@ describe("usrcmds.attach", function()
   it("keeps the argument texts of :MDView to one short line without a trailing full stop", function()
     local composer = require("lib.nvim.bindings.usercmd.composer")
     local entries = require("lib.nvim.bindings.usercmd.composer.help.entries")
-    if type(composer.help.undocumented) ~= "function" then
-      return
-    end
+    assert(
+      type(composer.help.undocumented) == "function",
+      "lib.nvim lacks composer.help.undocumented: update lib.nvim, this case cannot run without it"
+    )
 
     usrcmds.attach()
     local walked = 0
