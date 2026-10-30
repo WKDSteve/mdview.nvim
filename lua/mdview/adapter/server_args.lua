@@ -216,16 +216,49 @@ function M.sources()
   }
 end
 
--- How much older dist/client may be than the local relay before it counts as
--- stale. `npm run build` writes both within minutes; an hour leaves room for a
--- slow machine and still catches a bundle from an earlier checkout state.
-local STALE_SECONDS = 3600
-
 ---@param path string|nil
 ---@return integer|nil
 local function mtime(path)
   local stat = path and uv.fs_stat(path)
   return stat and stat.mtime and stat.mtime.sec or nil
+end
+
+-- What `dist/client` is built from, relative to the checkout — the same set
+-- scripts/rebuild-changed.sh rebuilds the client for. Directories are walked
+-- (all small; `native/wasm-render/target` is deliberately not among them).
+local CLIENT_SOURCE_DIRS = { "src/client", "native/wasm-render/src" }
+local CLIENT_SOURCE_FILES = { "native/wasm-render/Cargo.toml", "package.json", "package-lock.json" }
+
+--- The newest client source file in this checkout, or nil when there is none.
+---
+--- Dating `dist/client` against its own sources, not against the relay: the
+--- relay is rebuilt on its own (`npm run build:go`, and the post-commit hook
+--- rebuilds only the half whose sources changed), so a Go-only change leaves a
+--- perfectly current bundle "older than the relay". A pull/checkout that changes
+--- a client source writes that file now, which is what makes the bundle stale.
+---@return string|nil path, integer|nil mtime
+local function newest_client_source()
+  local root = plugin_root()
+  local best_path, best_time
+  local function consider(path)
+    local t = mtime(path)
+    if t and (not best_time or t > best_time) then
+      best_path, best_time = path, t
+    end
+  end
+  local collect = require("lib.nvim.fs.collect_recursive")
+  for _, dir in ipairs(CLIENT_SOURCE_DIRS) do
+    local abs = root .. "/" .. dir
+    if vim.fn.isdirectory(abs) == 1 then
+      for _, path in ipairs((collect.files(abs))) do
+        consider(path)
+      end
+    end
+  end
+  for _, file in ipairs(CLIENT_SOURCE_FILES) do
+    consider(root .. "/" .. file)
+  end
+  return best_path, best_time
 end
 
 --- Why the chosen relay and client bundle do not belong together, or nil.
@@ -251,18 +284,13 @@ function M.mismatch(binary, web_root)
     ):format(tostring(binary.path), tostring(version), tostring(web_root.path))
   end
   if web_root.source == "local" then
-    local bin_time = mtime(binary.path)
     local web_time = mtime(web_root.path and (web_root.path .. "/index.html"))
-    if bin_time and web_time and bin_time - web_time > STALE_SECONDS then
+    local src_path, src_time = newest_client_source()
+    if web_time and src_time and src_time > web_time then
       return (
-        "[mdview] the local client bundle %s (built %s) is older than the relay %s (built %s); "
-        .. "run `npm run build:client` to bring it up to date."
-      ):format(
-        web_root.path,
-        os.date("%Y-%m-%d %H:%M", web_time),
-        binary.path,
-        os.date("%Y-%m-%d %H:%M", bin_time)
-      )
+        "[mdview] the local client bundle %s (built %s) is older than its source %s (changed %s); "
+        .. "run `npm run build:client` (`npm run build` after a native/wasm-render change) to bring it up to date."
+      ):format(web_root.path, os.date("%Y-%m-%d %H:%M", web_time), src_path, os.date("%Y-%m-%d %H:%M", src_time))
     end
   end
   return nil

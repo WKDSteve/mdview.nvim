@@ -243,17 +243,63 @@ describe("server_args.resolve: dev relay with the release client bundle", functi
     end)
   end)
 
-  it("warns when dist/client is much older than the local relay", function()
+  ---@param path string
+  ---@param age_s integer seconds before now
+  ---@return nil
+  local function age(path, age_s)
+    local t = os.time() - age_s
+    assert((vim.uv or vim.loop).fs_utime(path, t, t))
+  end
+
+  ---@param root string
+  ---@param rel string path below the checkout
+  ---@return string
+  local function write_source(root, rel)
+    local path = root .. "/" .. rel
+    vim.fn.mkdir(vim.fn.fnamemodify(path, ":h"), "p")
+    vim.fn.writefile({ "// source" }, path)
+    return path
+  end
+
+  it("warns when a client source changed after dist/client was built", function()
+    with_checkout(function(root, notes)
+      build_relay(root)
+      local dir = build_client(root)
+      age(write_source(root, "src/client/main.ts"), 3 * 86400)
+      age(dir .. "/index.html", 2 * 86400)
+      -- What a pull that touches the client does: the file is written now.
+      write_source(root, "src/client/transport/ws.ts")
+      server_args.resolve()
+      assert.are.equal(1, #notes)
+      assert.is_truthy(notes[1]:find("older than its source", 1, true))
+      assert.is_truthy(notes[1]:find("ws.ts", 1, true))
+      assert.is_truthy(notes[1]:find("npm run build:client", 1, true))
+    end)
+  end)
+
+  it("warns when only the wasm renderer sources are newer", function()
+    with_checkout(function(root, notes)
+      build_relay(root)
+      local dir = build_client(root)
+      age(dir .. "/index.html", 86400)
+      write_source(root, "native/wasm-render/src/lib.rs")
+      server_args.resolve()
+      assert.are.equal(1, #notes)
+      assert.is_truthy(notes[1]:find("lib.rs", 1, true))
+    end)
+  end)
+
+  it("stays quiet when only the relay was rebuilt after dist/client", function()
+    -- `npm run build:go` / the post-commit hook after a Go-only change: the
+    -- relay is days newer than dist/client, yet the bundle is current.
     with_checkout(function(root, notes)
       local relay = build_relay(root)
       local dir = build_client(root)
-      local uv = vim.uv or vim.loop
-      local now = os.time()
-      uv.fs_utime(dir .. "/index.html", now - 3 * 86400, now - 3 * 86400)
-      uv.fs_utime(relay, now, now)
+      age(write_source(root, "src/client/main.ts"), 4 * 86400)
+      age(dir .. "/index.html", 3 * 86400)
+      age(relay, 0)
       server_args.resolve()
-      assert.are.equal(1, #notes)
-      assert.is_truthy(notes[1]:find("older than the relay", 1, true))
+      assert.are.equal(0, #notes)
     end)
   end)
 
