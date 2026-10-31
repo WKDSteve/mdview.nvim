@@ -12,8 +12,8 @@
 
 ---@diagnostic disable: undefined-global, duplicate-set-field
 
--- A private instance: line_diff_transport_spec.lua replaces ws.send_markdown on
--- the shared module, and this spec needs the real one.
+-- A private instance: line_diff_transport_spec.lua stubs ws.send_markdown on
+-- the shared module while it runs, and this spec needs the real one.
 local shared = package.loaded["mdview.adapter.ws_client"]
 package.loaded["mdview.adapter.ws_client"] = nil
 local ws = require("mdview.adapter.ws_client")
@@ -23,8 +23,14 @@ local config = require("mdview.config")
 
 -- The failure cases report through notify; keep that out of the run's output
 -- (this file runs in its own editor, isolated = "file").
+local orig_echo, orig_notify = vim.api.nvim_echo, vim.notify
 vim.api.nvim_echo = function() end
 vim.notify = function() end
+-- teardown() at the top level runs once every block of this file is done (also when one
+-- raises), so the silenced output stays silenced for every case below.
+teardown(function()
+  vim.api.nvim_echo, vim.notify = orig_echo, orig_notify
+end)
 
 local A = "C:/spec/lanes/a.md"
 local B = "C:/spec/lanes/b.md"
@@ -75,7 +81,7 @@ local function bodies(endpoint)
   return out
 end
 
-local function setup()
+local function stub_curl()
   started = {}
   ws.reset_lanes()
   ws.reset_diff_state()
@@ -94,7 +100,7 @@ local function setup()
   end
 end
 
-local function teardown()
+local function unstub_curl()
   ws.reset_lanes()
   ws.reset_diff_state()
   ws.LANE_STALL_MS = orig_stall
@@ -103,8 +109,8 @@ local function teardown()
 end
 
 describe("ws_client content lane", function()
-  before_each(setup)
-  after_each(teardown)
+  before_each(stub_curl)
+  after_each(unstub_curl)
 
   it("two quick send_content into one room reach the relay in that order", function()
     ws.send_content(A, { "patch" })
@@ -177,8 +183,8 @@ describe("ws_client content lane", function()
 end)
 
 describe("ws_client control lane", function()
-  before_each(setup)
-  after_each(teardown)
+  before_each(stub_curl)
+  after_each(unstub_curl)
 
   it("a cleared selection cannot overtake the new one", function()
     ws.send_control(A, '{"selection":false}')
@@ -215,8 +221,8 @@ end)
 -- success of the older post cleared the newer entry (so its failure was never
 -- retried), and the failure of the older one re-sent the newer text twice.
 describe("ws_client pending queue on the content lane", function()
-  before_each(setup)
-  after_each(teardown)
+  before_each(stub_curl)
+  after_each(unstub_curl)
 
   it("the success of a superseded post leaves the newer entry pending", function()
     ws.send_markdown(A, "one")
@@ -250,8 +256,8 @@ end)
 -- tabs, /doc drives browser history, /scroll moves the tab. Before their lanes
 -- each push started its own curl at once, so an older one could land last.
 describe("ws_client spans, doc and scroll lanes", function()
-  before_each(setup)
-  after_each(teardown)
+  before_each(stub_curl)
+  after_each(unstub_curl)
 
   it("spans: a newer payload cannot be overtaken, a queued one is superseded", function()
     ws.send_spans(A, '{"v":1}')

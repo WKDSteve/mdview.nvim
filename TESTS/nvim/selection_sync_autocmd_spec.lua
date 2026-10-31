@@ -31,7 +31,9 @@ vim.api.nvim_set_option_value("filetype", "markdown", { buf = buf })
 vim.api.nvim_buf_set_lines(buf, 0, -1, false, { "alpha bravo", "charlie delta", "echo" })
 vim.api.nvim_set_current_buf(buf)
 
-state.set_server({ stub = true })
+local orig_server = state.set_server({ stub = true })
+local orig_behavior, orig_selection_sync = bcfg.defaults.behavior, bcfg.defaults.selection_sync
+local orig_selection = vim.o.selection
 bcfg.defaults.behavior = "new_tab"
 bcfg.defaults.selection_sync = true -- off by default; switched on for these
 vim.o.selection = "inclusive"
@@ -43,6 +45,9 @@ selection_sync.attach(group)
 teardown(function()
   vim.api.nvim_del_augroup_by_id(group)
   ws.send_control = orig_send_control
+  state.set_server(orig_server)
+  bcfg.defaults.behavior, bcfg.defaults.selection_sync = orig_behavior, orig_selection_sync
+  vim.o.selection = orig_selection
 end)
 
 --- Type `keys` as if pressed, then let the autocmds run.

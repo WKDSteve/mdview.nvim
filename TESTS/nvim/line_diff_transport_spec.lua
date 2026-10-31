@@ -6,8 +6,11 @@
 ---@diagnostic disable: undefined-global
 
 -- setup() is done once by the harness; enable line_diff directly for this spec.
-require("mdview.config").defaults.experimental.line_diff = true
+local config = require("mdview.config")
+local orig_line_diff = config.defaults.experimental.line_diff
+config.defaults.experimental.line_diff = true
 local ws = require("mdview.adapter.ws_client")
+local orig_send_markdown, orig_jobstart = ws.send_markdown, vim.fn.jobstart
 
 -- Capture full snapshots (they go via send_markdown). Diffs go via a local
 -- http_post_nonblocking (curl/jobstart) — stub jobstart so nothing is spawned;
@@ -21,6 +24,14 @@ end
 vim.fn.jobstart = function()
   return 1
 end
+
+-- teardown() at the top level runs once every block of this file is done (also when one
+-- raises), so the stubs stay in place for every case below.
+teardown(function()
+  ws.reset_diff_state()
+  ws.send_markdown, vim.fn.jobstart = orig_send_markdown, orig_jobstart
+  config.defaults.experimental.line_diff = orig_line_diff
+end)
 
 local KEY = "C:/proj/doc.md"
 
