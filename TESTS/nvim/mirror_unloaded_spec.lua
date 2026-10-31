@@ -30,8 +30,18 @@ end
 local function with_file(content, fn)
   local path = vim.fn.tempname() .. ".md"
   vim.fn.writefile(content, path)
+  -- by buffer number, not by name: a loaded buffer's name is the resolved path, which on
+  -- macOS is not the tempname() spelling (/var -> /private/var)
+  local before = {}
+  for _, b in ipairs(vim.api.nvim_list_bufs()) do
+    before[b] = true
+  end
   local ok, err = pcall(fn, path)
-  wipe_buffers_of(path)
+  for _, b in ipairs(vim.api.nvim_list_bufs()) do
+    if not before[b] then
+      pcall(vim.api.nvim_buf_delete, b, { force = true })
+    end
+  end
   vim.fn.delete(path)
   if not ok then
     error(err, 0)
