@@ -34,10 +34,14 @@ return {
     scheduled_error = "error",
     -- The process guard is on: the plugin shells out to curl (see guard_allow.spawn).
     process_net = "error",
-    -- Still warn: buffer_switch_spec and pin_spec leave a running `curl -X POST` job to a server
-    -- nobody started (real leak of the specs), and several specs leave scratch buffers, windows,
-    -- tab pages and plugin autocmd groups behind (harmless under isolated = "file", but named).
-    state = "warn",
+    -- The suite leaves no state behind: the specs that open buffers, windows or tab pages put the
+    -- editor back through TESTS/nvim/helpers/ui_reset.lua after each case, and the ones that attach
+    -- the session autocmds or the :MDView command tear them down again. The one exception is
+    -- :LibLogger, which lib.nvim's logger registers once per process (scheduled, from inside
+    -- whichever case first creates a logger) and guards with its own idempotence flag: deleting
+    -- the command would leave that flag lying. Highlight groups (syntax files), options and
+    -- environment variables only ever warn.
+    state = { mode = "error", ignore_usercmds = { "LibLogger" } },
   },
   -- What the specs may do on purpose.
   guard_allow = {
@@ -48,18 +52,6 @@ return {
       -- browser_args_spec and server_args_spec make a fake executable with `chmod +x` (Unix only),
       -- which is how the specs create the "browser/server binary found on disk" fixture.
       "chmod",
-      -- breadcrumbs_spec opens a .py buffer on purpose; Neovim's own python3 ftplugin then probes
-      -- the python3 provider (a runtime action, not the plugin's), which only exists on CI runners.
-      -- (Neovim tries python3, python and the versioned names in turn, hence the list.)
-      "python3",
-      "python",
-      "python3.9",
-      "python3.10",
-      "python3.11",
-      "python3.12",
-      "python3.13",
-      "python3.14",
-      "python3.15",
     },
   },
   -- gated: a failed conformance check makes `scripts/test.sh conformance` exit 1 (docs/CONFORMANCE.md of testing.nvim)

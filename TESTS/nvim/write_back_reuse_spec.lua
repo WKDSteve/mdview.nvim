@@ -20,10 +20,22 @@ local ws = require("mdview.adapter.ws_client")
 local state = require("mdview.core.state")
 local bcfg = require("mdview.config.browser")
 
+--- Set `ft` on `b` without the FileType autocmds: the runtime's ftplugin would
+--- otherwise (re)map `[[`, `]]` and `gO` in the buffer on every change, which the
+--- state guard reports as a keymap the case replaced. The code under test only
+--- reads the option.
+---@param b integer
+---@param ft string
+local function set_filetype(b, ft)
+  vim.api.nvim_buf_call(b, function()
+    vim.cmd("noautocmd setlocal filetype=" .. ft)
+  end)
+end
+
 local function make_buf(name, lines)
   local b = vim.api.nvim_create_buf(true, false)
   vim.api.nvim_buf_set_name(b, name)
-  vim.bo[b].filetype = "markdown"
+  set_filetype(b, "markdown")
   vim.api.nvim_buf_set_lines(b, 0, -1, false, lines)
   return b
 end
@@ -51,7 +63,7 @@ local announced
 describe("browser write-backs under browser.behavior = reuse", function()
   before_each(function()
     vim.bo[shown].modifiable = true
-    vim.bo[shown].filetype = "markdown"
+    set_filetype(shown, "markdown")
     vim.api.nvim_buf_set_lines(shown, 0, -1, false, {
       "# Shown",
       "- [ ] on screen",
@@ -180,7 +192,7 @@ describe("browser write-backs under browser.behavior = reuse", function()
   end)
 
   it("never writes to a buffer mdview does not preview", function()
-    vim.bo[shown].filetype = "lua"
+    set_filetype(shown, "lua")
     local before = lines(shown)
     inbound._handle_toggle(ROOM, 2, true, SHOWN)
     inbound._handle_field(ROOM, "title", "Hello", SHOWN)

@@ -9,6 +9,11 @@
 ---@diagnostic disable: undefined-global
 
 local detached = require("mdview.adapter.detached")
+local ui_reset = require("TESTS.nvim.helpers.ui_reset")
+
+-- every case wipes the buffers and closes the windows it opened
+before_each(ui_reset.snapshot)
+after_each(ui_reset.restore)
 
 --- Find `key=value` in a libuv-style "KEY=VALUE" string list.
 ---@param env string[]

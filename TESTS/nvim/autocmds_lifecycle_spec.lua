@@ -16,10 +16,6 @@ local GROUP = "MdviewAutocmds"
 
 -- attach() starts the inbound poller; nothing here needs a live one.
 local orig_start, orig_stop = inbound_poll.start, inbound_poll.stop
----@diagnostic disable-next-line: duplicate-set-field
-inbound_poll.start = function() end
----@diagnostic disable-next-line: duplicate-set-field
-inbound_poll.stop = function() end
 
 ---@return integer # how many autocmds Neovim itself still has in the session group
 local function native_count()
@@ -28,14 +24,32 @@ local function native_count()
 end
 
 describe("session autocmds attach/teardown", function()
+  -- The stubs live as long as the cases (a plain assignment in the describe body
+  -- would be undone by the restore below before the first case runs).
+  setup(function()
+    ---@diagnostic disable-next-line: duplicate-set-field
+    inbound_poll.start = function() end
+    ---@diagnostic disable-next-line: duplicate-set-field
+    inbound_poll.stop = function() end
+  end)
+
+  teardown(function()
+    inbound_poll.start, inbound_poll.stop = orig_start, orig_stop
+  end)
+
+  -- Every case starts and ends without the session group: no case leaves its
+  -- autocmds behind, and none depends on what an earlier one attached.
+  before_each(autocmds.teardown)
+  after_each(autocmds.teardown)
+
   it("attach() registers the session's autocmds in one augroup", function()
-    autocmds.teardown() -- clean slate whatever an earlier spec left behind
     autocmds.attach()
     assert.is_true(native_count() > 0)
     assert.is_true(#lib_autocmd.registered({ group = GROUP }) > 0)
   end)
 
   it("teardown() removes every one of them, natively and from lib's records", function()
+    autocmds.attach()
     assert.is_true(native_count() > 0)
     autocmds.teardown()
     assert.are.equal(0, native_count())
@@ -43,6 +57,7 @@ describe("session autocmds attach/teardown", function()
   end)
 
   it("teardown() is idempotent", function()
+    autocmds.attach()
     autocmds.teardown()
     autocmds.teardown()
     assert.are.equal(0, native_count())
@@ -110,7 +125,4 @@ describe("session autocmds attach/teardown", function()
     autocmds.teardown()
     assert.is_false(has_paragraph_colorscheme())
   end)
-
-  -- restore
-  inbound_poll.start, inbound_poll.stop = orig_start, orig_stop
 end)

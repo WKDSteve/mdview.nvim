@@ -10,6 +10,18 @@
 ---@diagnostic disable: undefined-global
 
 local preview_tab = require("mdview.adapter.preview_tab")
+local ui_reset = require("TESTS.nvim.helpers.ui_reset")
+
+-- The live-sync autocmds (group MdviewPreviewTabSync) are created once, by the first
+-- preview opened, and stay for the rest of the session by design. Attached here, when the
+-- file loads, so that no case is charged with them.
+require("mdview.bindings.autocmds.preview_tab_sync").ensure_attached()
+
+-- Every case starts from the tab pages, windows and buffers the files' fixtures left and
+-- puts the editor back there: a case opens the preview it needs instead of relying on an
+-- earlier one, and closes what it opened.
+before_each(ui_reset.snapshot)
+after_each(ui_reset.restore)
 
 local orig_notify = vim.notify
 vim.notify = function() end
@@ -28,6 +40,13 @@ end
 
 describe("preview_tab.open/close/toggle", function()
   local source = make_md_buffer("mdview_spec_preview_tab.md", { "# Title", "body line" })
+
+  -- before ui_reset.restore (registered outside): close() forgets the mapping, wiping alone
+  -- would leave it to the preview's BufWipeout autocmd
+  after_each(function()
+    preview_tab.close(source)
+    vim.api.nvim_buf_set_lines(source, 0, -1, false, { "# Title", "body line" })
+  end)
 
   it("refuses a non-markdown buffer", function()
     local plain = vim.api.nvim_create_buf(true, false)
@@ -61,12 +80,14 @@ describe("preview_tab.open/close/toggle", function()
   end)
 
   it("is_open reports true from either side of the source/preview pair", function()
+    assert.is_true(preview_tab.open(source))
     assert.is_true(preview_tab.is_open(source))
     local preview_buf = vim.api.nvim_get_current_buf()
     assert.is_true(preview_tab.is_open(preview_buf))
   end)
 
   it("sync() mirrors source edits into the preview, preserving the window's cursor", function()
+    assert.is_true(preview_tab.open(source))
     local preview_buf = vim.api.nvim_get_current_buf()
     local win = vim.api.nvim_get_current_win()
     vim.api.nvim_win_set_cursor(win, { 2, 0 })
@@ -80,6 +101,7 @@ describe("preview_tab.open/close/toggle", function()
   end)
 
   it("re-opening an already-open preview focuses the existing window instead of creating a new tab", function()
+    assert.is_true(preview_tab.open(source))
     local preview_win = vim.api.nvim_get_current_win()
     local preview_tabpage = vim.api.nvim_get_current_tabpage()
 
@@ -99,7 +121,6 @@ describe("preview_tab.open/close/toggle", function()
   end)
 
   it("toggle() closes an open preview: window and buffer both go away", function()
-    -- Own state, not the previous case's: open() opens the preview, or just focuses an open one.
     assert.is_true(preview_tab.open(source))
     assert.is_true(preview_tab.is_open(source))
     local preview_buf = vim.api.nvim_get_current_buf()
@@ -119,6 +140,7 @@ describe("preview_tab.open/close/toggle", function()
   end)
 
   it("close() on either side of the pair tears the tab/buffer down", function()
+    assert.is_true(preview_tab.open(source))
     local preview_buf = vim.api.nvim_get_current_buf()
     preview_tab.close(preview_buf) -- closing via the PREVIEW side, not the source
     assert.is_false(preview_tab.is_open(source))

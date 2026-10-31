@@ -24,6 +24,9 @@ vim.api.nvim_buf_set_lines(buf, 0, -1, false, {
 })
 vim.api.nvim_set_current_buf(buf)
 
+-- taken after the fixture above, so a case only wipes what it made itself
+local ui_reset = require("TESTS.nvim.helpers.ui_reset")
+
 local function record_at(line)
   vim.api.nvim_win_set_cursor(0, { line, 0 })
   return crumbs.record(buf)
@@ -64,6 +67,8 @@ describe("breadcrumbs.record heading detection + dedupe", function()
 end)
 
 describe("breadcrumbs.record under any_file", function()
+  after_each(ui_reset.restore)
+
   it("does not mistake a '#' comment for a heading in a non-markdown buffer", function()
     local config = require("mdview.config")
     local orig = config.defaults.any_file
@@ -71,7 +76,11 @@ describe("breadcrumbs.record under any_file", function()
 
     local pybuf = vim.api.nvim_create_buf(true, false)
     vim.api.nvim_buf_set_name(pybuf, "mdview_spec_crumbs.py")
-    vim.bo[pybuf].filetype = "python"
+    -- without the FileType autocmds: breadcrumbs only reads the option, and the runtime's
+    -- python ftplugin would probe for a python3 provider and change 'wildignore'
+    vim.api.nvim_buf_call(pybuf, function()
+      vim.cmd("noautocmd setlocal filetype=python")
+    end)
     vim.api.nvim_buf_set_lines(pybuf, 0, -1, false, {
       "# not a heading, just a comment",
       "def f():",

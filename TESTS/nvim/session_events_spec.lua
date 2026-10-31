@@ -11,6 +11,11 @@
 local session = require("mdview.core.session")
 local events = require("mdview.core.events")
 local ws = require("mdview.adapter.ws_client")
+local ui_reset = require("TESTS.nvim.helpers.ui_reset")
+
+-- every case wipes the buffers and closes the windows it opened
+before_each(ui_reset.snapshot)
+after_each(ui_reset.restore)
 
 local sent_payloads
 local orig_send_markdown = ws.send_markdown

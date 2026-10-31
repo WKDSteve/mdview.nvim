@@ -44,10 +44,17 @@ describe("enter hub", function()
     end
   end
 
-  it("runs every registered handler once, in registration order", function()
+  -- Every case starts with the two spec handlers registered and ends with the
+  -- hub reset, so no case leaves the dispatcher's autocmds behind and none
+  -- depends on what an earlier one registered.
+  before_each(function()
     reset_calls()
     hub.register("spec.first", { desc = "first", load = record("first") })
     hub.register("spec.second", { desc = "second", load = record("second") })
+  end)
+  after_each(hub.reset)
+
+  it("runs every registered handler once, in registration order", function()
     enter(md)
     assert.are.equal(2, #calls)
     assert.are.equal("first", calls[1].tag)
@@ -55,7 +62,6 @@ describe("enter hub", function()
   end)
 
   it("hands every handler the same, already normalized path", function()
-    reset_calls()
     enter(md)
     local expected = normalize.path(vim.api.nvim_buf_get_name(md))
     assert.are.equal(expected, calls[1].path)
@@ -64,13 +70,11 @@ describe("enter hub", function()
   end)
 
   it("never reaches a handler for a buffer outside ft_pattern", function()
-    reset_calls()
     enter(other)
     assert.are.equal(0, #calls)
   end)
 
   it("never reaches a handler for a buffer that matches the pattern but is not previewable", function()
-    reset_calls()
     enter(scratch)
     assert.are.equal(0, #calls)
   end)
@@ -92,7 +96,6 @@ describe("enter hub", function()
   end)
 
   it("reset() takes every handler back out", function()
-    reset_calls()
     hub.reset()
     enter(other)
     enter(md)
@@ -105,7 +108,7 @@ describe("enter hub", function()
   end)
 
   it("registers and fires again after a reset (the dispatcher is re-attached)", function()
-    reset_calls()
+    hub.reset()
     hub.register("spec.again", { desc = "again", load = record("again") })
     enter(other)
     enter(md)
@@ -113,6 +116,10 @@ describe("enter hub", function()
     assert.are.equal("again", calls[1].tag)
   end)
 
-  -- restore
-  hub.reset()
+  -- the fixture buffers are made when the file loads, outside any case
+  teardown(function()
+    for _, buf in ipairs({ md, other, scratch }) do
+      pcall(vim.api.nvim_buf_delete, buf, { force = true })
+    end
+  end)
 end)

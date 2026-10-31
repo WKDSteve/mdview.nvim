@@ -14,16 +14,28 @@ local live = require("mdview.bindings.autocmds.live_push")
 local ws = require("mdview.adapter.ws_client")
 local control = require("mdview.adapter.control")
 
+--- Set `ft` on `b` without the FileType autocmds: the runtime's ftplugin would
+--- otherwise (re)map `[[`, `]]` and `gO` in the buffer on every change, which the
+--- state guard reports as a keymap the case replaced. The code under test only
+--- reads the option.
+---@param b integer
+---@param ft string
+local function set_filetype(b, ft)
+  vim.api.nvim_buf_call(b, function()
+    vim.cmd("noautocmd setlocal filetype=" .. ft)
+  end)
+end
+
 local buf = vim.api.nvim_create_buf(true, false)
 vim.api.nvim_buf_set_name(buf, "mdview_spec_block_edit.md")
 vim.api.nvim_set_current_buf(buf)
-vim.bo[buf].filetype = "markdown"
+set_filetype(buf, "markdown")
 
 local KEY = assert(normalize.path(vim.api.nvim_buf_get_name(buf)), "the fixture buffer has a name")
 
 local other = vim.api.nvim_create_buf(true, false)
 vim.api.nvim_buf_set_name(other, "mdview_spec_block_edit_other.md")
-vim.bo[other].filetype = "markdown"
+set_filetype(other, "markdown")
 local OTHER_KEY = assert(normalize.path(vim.api.nvim_buf_get_name(other)), "the other buffer has a name")
 
 local function set(lines)
@@ -45,7 +57,7 @@ describe("inbound_poll._handle_edit", function()
   before_each(function()
     config.defaults.edit_blocks = true
     vim.bo[buf].modifiable = true
-    vim.bo[buf].filetype = "markdown"
+    set_filetype(buf, "markdown")
     set({ "# Title", "", "first line", "second line", "", "tail" })
     vim.api.nvim_buf_set_lines(other, 0, -1, false, { "# Other", "", "other text" })
     -- the room of the tab (KEY) holds the document of `buf`
@@ -163,7 +175,7 @@ describe("inbound_poll._handle_edit", function()
   end)
 
   it("edits only buffers mdview previews, not any loaded buffer", function()
-    vim.bo[buf].filetype = "lua"
+    set_filetype(buf, "lua")
     local before = all()
     inbound._handle_edit(KEY, 1, 1, "# Title", "-- rewritten")
     assert.are.same(before, all())

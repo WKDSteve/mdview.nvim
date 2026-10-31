@@ -14,6 +14,7 @@
 ---@diagnostic disable: undefined-global
 
 local log = require("mdview.adapter.log")
+local ui_reset = require("TESTS.nvim.helpers.ui_reset")
 
 -- Save/restore every override this module exposes -- it is a singleton
 -- (required once, state lives in module-level locals), so leaking an
@@ -174,6 +175,9 @@ describe("adapter.log ring buffer", function()
 end)
 
 describe("adapter.log.show scratch buffer", function()
+  -- each case wipes the scratch buffer it made, so the next one starts without it
+  after_each(ui_reset.restore)
+
   it("creates the mdview://logs buffer with the accumulated lines", function()
     log.append("shown-in-scratch-marker")
     log.show()
@@ -193,7 +197,10 @@ describe("adapter.log.show scratch buffer", function()
   end)
 
   it("reuses the same buffer on a repeat call instead of erroring", function()
+    log.show()
+    vim.wait(50)
     local bufnr_before = vim.fn.bufnr("mdview://logs")
+    assert(bufnr_before ~= -1, "expected the first call to create the mdview://logs buffer")
     log.append("second-marker")
     local ok, err = pcall(log.show)
     vim.wait(50)

@@ -9,6 +9,11 @@
 
 local previewable = require("mdview.helper.previewable")
 local config = require("mdview.config")
+local ui_reset = require("TESTS.nvim.helpers.ui_reset")
+
+-- every case wipes the buffers and closes the windows it opened
+before_each(ui_reset.snapshot)
+after_each(ui_reset.restore)
 
 ---@param filetype string
 ---@param buftype string|nil

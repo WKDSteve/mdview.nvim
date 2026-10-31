@@ -9,6 +9,10 @@
 ---@diagnostic disable: undefined-global
 
 local usrcmd_log = require("mdview.bindings.usrcmds.log")
+local ui_reset = require("TESTS.nvim.helpers.ui_reset")
+
+-- every case closes the window and wipes the buffer it opened
+after_each(ui_reset.restore)
 
 describe("usrcmds.log show_ring buffer reuse", function()
   it("does not error when called twice with the old window still open", function()
@@ -18,6 +22,7 @@ describe("usrcmds.log show_ring buffer reuse", function()
   end)
 
   it("reuses a single mdview://log buffer instead of creating a new one", function()
+    usrcmd_log.show_ring(nil)
     local bufnr = vim.fn.bufnr("mdview://log")
     assert(bufnr ~= -1, "expected mdview://log buffer to exist")
 

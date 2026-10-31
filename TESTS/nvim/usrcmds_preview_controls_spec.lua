@@ -25,6 +25,11 @@ local selection = require("mdview.bindings.usrcmds.selection")
 local sync = require("mdview.bindings.usrcmds.sync")
 local zoom = require("mdview.bindings.usrcmds.zoom")
 local theme = require("mdview.bindings.usrcmds.theme")
+local ui_reset = require("TESTS.nvim.helpers.ui_reset")
+
+-- every case wipes the buffers and closes the windows it opened
+before_each(ui_reset.snapshot)
+after_each(ui_reset.restore)
 
 -- Silence every notify() in this file -- these actions notify on every call,
 -- and the assertions below are about state/control, not message wording.

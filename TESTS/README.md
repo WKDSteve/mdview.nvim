@@ -28,6 +28,15 @@ Two cases (`enter_hub_spec.lua` "reset() is safe to call twice",
 assert nothing on some platforms; `assertions = "warn"` in `.testing.lua` lets
 them pass with a note.
 
+The state guard is strict (`state = "error"` in `.testing.lua`): a case that
+leaves a buffer, window, tab page, autocmd, keymap or user command behind
+fails. A spec that opens buffers or windows registers
+`before_each(ui_reset.snapshot)` / `after_each(ui_reset.restore)` from
+`TESTS/nvim/helpers/ui_reset.lua`; a spec that only reads `'filetype'` sets it
+with `noautocmd setlocal filetype=...`, so the runtime's ftplugin does not
+(re)map `[[`, `]]` and `gO` in the buffer. Only `:LibLogger` (lib.nvim's,
+registered once per process) is ignored.
+
 Neither root calls `require("mdview").setup()`: that resolves the browser
 and registers user commands, both of which are environment-sensitive (and
 setup() is itself covered directly, see below) — specs require the modules

@@ -45,6 +45,12 @@ describe("usrcmds._log_level_routes", function()
 end)
 
 describe("usrcmds.attach", function()
+  -- attach() is what setup() runs: each case takes the :MDView command (and lib's record of
+  -- it) back out, so no case leaves it behind and each one registers it itself.
+  after_each(function()
+    require("lib.nvim.bindings.usercmd").delete("MDView")
+  end)
+
   it("registers the :MDView command tree without erroring", function()
     local ok, err = pcall(usrcmds.attach)
     assert.is_true(ok, "usrcmds.attach() must not throw -- got: " .. tostring(err))
