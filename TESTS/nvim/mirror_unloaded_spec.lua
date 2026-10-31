@@ -11,17 +11,6 @@
 local mirror = require("mdview.core.mirror")
 local normalize = require("mdview.helper.normalize")
 
----@param path string
----@return nil
-local function wipe_buffers_of(path)
-  local want = vim.fs.normalize(path)
-  for _, b in ipairs(vim.api.nvim_list_bufs()) do
-    if vim.fs.normalize(vim.api.nvim_buf_get_name(b)) == want then
-      pcall(vim.api.nvim_buf_delete, b, { force = true })
-    end
-  end
-end
-
 --- Runs `fn(path)` with a temporary markdown file holding `content`; the file and
 --- every buffer created for it are removed even when an assertion in `fn` throws.
 ---@param content string[]
@@ -73,7 +62,7 @@ describe("mdview.core.mirror with a buffer that is not loaded", function()
     local path = vim.fn.tempname() .. "-not-there.md"
     local buf = vim.fn.bufadd(path)
     local ok, got = pcall(mirror.lines, buf)
-    wipe_buffers_of(path)
+    pcall(vim.api.nvim_buf_delete, buf, { force = true })
     assert.is_true(ok, tostring(got))
     assert.are.same({}, got)
   end)

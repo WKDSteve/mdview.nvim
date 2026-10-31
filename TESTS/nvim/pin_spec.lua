@@ -20,9 +20,8 @@ local bcfg = require("mdview.config.browser")
 local normalize = require("mdview.helper.normalize")
 
 -- Capture where each channel routes (or that it sent nothing at all). The
--- stubs live from before_each to after_each: a describe body runs at
--- collection time, so stubs installed and restored there are gone again when
--- the cases run, and every push would spawn a real `curl -X POST` job.
+-- stubs live from before_each to after_each, so every case has them and none
+-- leaves them behind; without them every push would spawn a real `curl -X POST` job.
 local last_content, last_scroll
 local orig_content, orig_scroll, orig_doc = ws.send_content, ws.send_scroll, ws.send_doc
 

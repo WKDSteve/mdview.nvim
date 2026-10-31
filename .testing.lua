@@ -39,8 +39,9 @@ return {
     -- the session autocmds or the :MDView command tear them down again. The one exception is
     -- :LibLogger, which lib.nvim's logger registers once per process (scheduled, from inside
     -- whichever case first creates a logger) and guards with its own idempotence flag: deleting
-    -- the command would leave that flag lying. Highlight groups (syntax files), options and
-    -- environment variables only ever warn.
+    -- the command would leave that flag lying. Highlight groups (syntax files), options, global
+    -- variables (vim.g) and environment variables only ever warn; the specs put the ones they set
+    -- back as well.
     state = { mode = "error", ignore_usercmds = { "LibLogger" } },
   },
   -- What the specs may do on purpose.

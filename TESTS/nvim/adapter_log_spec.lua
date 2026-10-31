@@ -176,6 +176,7 @@ end)
 
 describe("adapter.log.show scratch buffer", function()
   -- each case wipes the scratch buffer it made, so the next one starts without it
+  before_each(ui_reset.snapshot)
   after_each(ui_reset.restore)
 
   it("creates the mdview://logs buffer with the accumulated lines", function()

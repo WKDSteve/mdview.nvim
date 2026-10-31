@@ -41,8 +41,9 @@ end
 describe("preview_tab.open/close/toggle", function()
   local source = make_md_buffer("mdview_spec_preview_tab.md", { "# Title", "body line" })
 
-  -- before ui_reset.restore (registered outside): close() forgets the mapping, wiping alone
-  -- would leave it to the preview's BufWipeout autocmd
+  -- after_each hooks run outermost first, so ui_reset.restore (registered outside) has already
+  -- closed the preview tab and the preview's BufWipeout autocmd forgot the mapping; close() only
+  -- catches what that left over
   after_each(function()
     preview_tab.close(source)
     vim.api.nvim_buf_set_lines(source, 0, -1, false, { "# Title", "body line" })

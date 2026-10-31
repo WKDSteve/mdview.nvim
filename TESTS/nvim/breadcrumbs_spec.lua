@@ -67,6 +67,7 @@ describe("breadcrumbs.record heading detection + dedupe", function()
 end)
 
 describe("breadcrumbs.record under any_file", function()
+  before_each(ui_reset.snapshot)
   after_each(ui_reset.restore)
 
   it("does not mistake a '#' comment for a heading in a non-markdown buffer", function()

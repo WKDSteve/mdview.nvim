@@ -207,6 +207,8 @@ describe("spotlight_sync", function()
 
   it("on a shared relay only the instance owning the tab sends; a takeover replaces the other's", function()
     local shared = require("mdview.adapter.shared_relay")
+    -- attach() records the relay's port in a global; _reset() does not put it back
+    local orig_port = vim.g.mdview_server_port
     local ok, err = pcall(function()
       shared.attach({ port = 43219, token = "tok", status = { tabs = {} } })
       sync.attach(group)
@@ -228,6 +230,7 @@ describe("spotlight_sync", function()
       assert.are.same({}, sent[3].items)
     end)
     shared._reset()
+    vim.g.mdview_server_port = orig_port
     if not ok then
       error(err, 0)
     end

@@ -13,9 +13,8 @@ local bcfg = require("mdview.config.browser")
 local normalize = require("mdview.helper.normalize")
 
 -- Capture where content is routed. live_push calls send_content; stub it.
--- The stub lives from before_each to after_each: the describe body runs at
--- collection time, so a stub installed and restored there would be gone again
--- when the cases run, and live_push would spawn a real `curl -X POST` job.
+-- The stub lives from before_each to after_each, so every case has it and none
+-- leaves it behind; without it live_push would spawn a real `curl -X POST` job.
 local last_key
 local orig, orig_doc = ws.send_content, ws.send_doc
 

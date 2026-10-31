@@ -24,8 +24,8 @@ local function native_count()
 end
 
 describe("session autocmds attach/teardown", function()
-  -- The stubs live as long as the cases (a plain assignment in the describe body
-  -- would be undone by the restore below before the first case runs).
+  -- The stubs live exactly as long as this block's cases: setup() installs them when
+  -- the block starts, teardown() puts the originals back when it ends.
   setup(function()
     ---@diagnostic disable-next-line: duplicate-set-field
     inbound_poll.start = function() end

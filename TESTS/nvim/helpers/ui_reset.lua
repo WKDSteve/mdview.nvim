@@ -7,8 +7,10 @@
 --- testing.nvim reports each of those as a leak of the case.
 ---
 --- The baseline is taken when this module is first required and again by every
---- `snapshot()`. A spec whose fixtures are made in describe bodies (collected
---- before any case runs, but after the require) takes it per case:
+--- `snapshot()`. Describe bodies and cases run inline, in source order, so a
+--- fixture made in a describe body (after the require) exists from that point on
+--- and would be wiped by the first `restore()` against the require-time
+--- baseline. Specs therefore take the baseline per case:
 ---
 ---   local ui_reset = require("TESTS.nvim.helpers.ui_reset")
 ---   before_each(ui_reset.snapshot)

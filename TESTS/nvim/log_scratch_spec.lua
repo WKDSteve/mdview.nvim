@@ -12,6 +12,7 @@ local usrcmd_log = require("mdview.bindings.usrcmds.log")
 local ui_reset = require("TESTS.nvim.helpers.ui_reset")
 
 -- every case closes the window and wipes the buffer it opened
+before_each(ui_reset.snapshot)
 after_each(ui_reset.restore)
 
 describe("usrcmds.log show_ring buffer reuse", function()
