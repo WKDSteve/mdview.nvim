@@ -25,6 +25,11 @@ after_each(ui_reset.restore)
 
 local orig_notify = vim.notify
 vim.notify = function() end
+-- teardown() at the top level runs once every block of this file is done (also when one
+-- raises), so the stubs stay in place for every case below.
+teardown(function()
+  vim.notify = orig_notify
+end)
 
 --- A real, named, listed Markdown buffer with the given lines.
 ---@param name string
@@ -228,5 +233,3 @@ describe("preview_tab.handle_displacement", function()
     preview_tab.close(source)
   end)
 end)
-
-vim.notify = orig_notify

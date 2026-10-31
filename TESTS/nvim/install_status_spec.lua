@@ -18,9 +18,18 @@ local config = require("mdview.config")
 local orig_version = config.defaults.install.version
 local TEST_VERSION = "v0.0.0-mdview-spec-" .. tostring(vim.uv.hrtime())
 config.defaults.install.version = TEST_VERSION
+-- teardown() at the top level runs once every block of this file is done (also when one
+-- raises), so the stubs stay in place for every case below.
+teardown(function()
+  config.defaults.install.version = orig_version
+end)
 
 describe("install.status", function()
   local status0 = install.status()
+  -- Clean up the disposable test-version tree once the cases are done.
+  teardown(function()
+    vim.fn.delete(vim.fn.fnamemodify(status0.binary_path, ":h"), "rf")
+  end)
 
   it("reports nothing installed for a version nothing has touched yet", function()
     assert.is_false(status0.binary_installed)
@@ -47,9 +56,4 @@ describe("install.status", function()
     assert.is_true(status2.client_installed)
     assert.are.equal(status0.client_dir, status2.client_dir)
   end)
-
-  -- Clean up the disposable test-version tree.
-  vim.fn.delete(vim.fn.fnamemodify(status0.binary_path, ":h"), "rf")
 end)
-
-config.defaults.install.version = orig_version

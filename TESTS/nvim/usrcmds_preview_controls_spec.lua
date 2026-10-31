@@ -48,6 +48,13 @@ local orig_send_current_position = scroll_sync.send_current_position
 scroll_sync.send_current_position = function(bufnr)
   position_pinged = bufnr
 end
+-- teardown() at the top level runs once every block of this file is done (also when one
+-- raises), so the stubs stay in place for every case below.
+teardown(function()
+  control.send = orig_control_send
+  scroll_sync.send_current_position = orig_send_current_position
+  vim.notify = orig_notify
+end)
 
 describe("usrcmds.blanklines", function()
   it("records the choice without a session, without calling control.send", function()
@@ -379,7 +386,3 @@ describe("usrcmds.theme", function()
     state.set_attached(false)
   end)
 end)
-
-control.send = orig_control_send
-scroll_sync.send_current_position = orig_send_current_position
-vim.notify = orig_notify

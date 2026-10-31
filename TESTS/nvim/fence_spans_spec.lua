@@ -129,6 +129,9 @@ describe("fence_spans.push", function()
   ws.send_spans = function(_, json)
     sent = json
   end
+  teardown(function()
+    ws.send_spans = orig_send_spans
+  end)
 
   local blocks = { { content_start = 0 } }
   local runs = { [1] = { { { text = "local", group = "Keyword" } } } }
@@ -154,6 +157,4 @@ describe("fence_spans.push", function()
     local json = assert(sent, "a payload was sent")
     assert.are.equal(1, vim.json.decode(json).v)
   end)
-
-  ws.send_spans = orig_send_spans
 end)

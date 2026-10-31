@@ -49,6 +49,19 @@ end
 stop.stop = function()
   stopped = true
 end
+-- teardown() at the top level runs once every block of this file is done (also when one
+-- raises), so the stubs stay in place for every case below.
+teardown(function()
+  vim.notify = orig.notify
+  control.send = orig.send
+  scroll_sync.send_current_position = orig.ping
+  inbound_poll.start = orig.poll_start
+  start.run = orig.start_run
+  stop.run = orig.stop_run
+  stop.stop = orig.stop_stop
+  cfg.defaults.browser.cursor_marker = "line"
+  cfg.defaults.edit_blocks = false
+end)
 
 local function reset(marker, edit, server)
   write._reset()
@@ -194,13 +207,3 @@ describe("bindings.keymaps", function()
     assert.is_nil(warned)
   end)
 end)
-
-vim.notify = orig.notify
-control.send = orig.send
-scroll_sync.send_current_position = orig.ping
-inbound_poll.start = orig.poll_start
-start.run = orig.start_run
-stop.run = orig.stop_run
-stop.stop = orig.stop_stop
-cfg.defaults.browser.cursor_marker = "line"
-cfg.defaults.edit_blocks = false

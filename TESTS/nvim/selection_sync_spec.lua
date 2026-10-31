@@ -21,6 +21,11 @@ local orig_send_control = ws.send_control
 ws.send_control = function(key, json)
   last_key, last_json = key, json
 end
+-- teardown() at the top level runs once every block of this file is done (also when one
+-- raises), so the stubs stay in place for every case below.
+teardown(function()
+  ws.send_control = orig_send_control
+end)
 
 local function make_md_buffer(name, lines)
   local buf = vim.api.nvim_create_buf(true, false)
@@ -236,6 +241,4 @@ describe("selection_sync.send_current_selection", function()
     local json = assert(last_json, "a payload was sent")
     assert.are.equal(false, vim.json.decode(json).selection)
   end)
-
-  ws.send_control = orig_send_control
 end)

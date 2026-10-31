@@ -38,6 +38,12 @@ vim.o.selection = "inclusive"
 
 local group = vim.api.nvim_create_augroup("MdviewSelectionSyncSpec", { clear = true })
 selection_sync.attach(group)
+-- teardown() at the top level runs once every block of this file is done (also when one
+-- raises), so the stubs stay in place for every case below.
+teardown(function()
+  vim.api.nvim_del_augroup_by_id(group)
+  ws.send_control = orig_send_control
+end)
 
 --- Type `keys` as if pressed, then let the autocmds run.
 ---@param keys string
@@ -123,7 +129,4 @@ describe("selection_sync autocmds", function()
     feed("k")
     assert.are.equal(0, #sent)
   end)
-
-  vim.api.nvim_del_augroup_by_id(group)
-  ws.send_control = orig_send_control
 end)

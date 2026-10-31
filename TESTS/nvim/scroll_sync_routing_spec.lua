@@ -24,6 +24,11 @@ local orig = ws.send_scroll
 ws.send_scroll = function(key)
   last_key = key
 end
+-- teardown() at the top level runs once every block of this file is done (also when one
+-- raises), so the stubs stay in place for every case below.
+teardown(function()
+  ws.send_scroll = orig
+end)
 
 local function make_md_buffer(name)
   local buf = vim.api.nvim_create_buf(true, false)
@@ -72,7 +77,4 @@ describe("scroll_sync routing by browser.behavior", function()
     scroll_sync.send_current_position(buf)
     assert.are.equal(B_key, last_key)
   end)
-
-  -- restore
-  ws.send_scroll = orig
 end)

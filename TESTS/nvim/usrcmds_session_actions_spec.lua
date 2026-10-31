@@ -42,6 +42,12 @@ local orig_send_close = ws.send_close
 ws.send_close = function()
   close_called = true
 end
+-- teardown() at the top level runs once every block of this file is done (also when one
+-- raises), so the stubs stay in place for every case below.
+teardown(function()
+  ws.send_close = orig_send_close
+  vim.notify = orig_notify
+end)
 
 describe("usrcmds.stop", function()
   it("detaches, clears server/pin/preview-key, and sends the close signal", function()
@@ -96,6 +102,10 @@ describe("usrcmds.toggle", function()
   stop_mod.run = function()
     stop_called = true
   end
+  teardown(function()
+    start.run = orig_start_run
+    stop_mod.run = orig_stop_run
+  end)
 
   it("starts when no session is running, forwarding fargs", function()
     state.set_server(nil)
@@ -113,9 +123,6 @@ describe("usrcmds.toggle", function()
     assert.is_nil(start_args)
     state.set_server(nil)
   end)
-
-  start.run = orig_start_run
-  stop_mod.run = orig_stop_run
 end)
 
 describe("usrcmds.open", function()
@@ -167,6 +174,12 @@ describe("usrcmds.diagnose", function()
 end)
 
 describe("usrcmds.file_log", function()
+  -- leave file logging off for any later spec sharing this singleton
+  teardown(function()
+    log.set_file_log(false)
+    log.set_file_log_path(nil)
+  end)
+
   it("on(path) enables file logging at the given absolute path", function()
     local path = vim.fn.tempname() .. "-filelog.log"
     file_log_cmd.on(path)
@@ -212,10 +225,6 @@ describe("usrcmds.file_log", function()
     assert.is_true(ok2)
     assert.is_false((log.file_log_state()))
   end)
-
-  -- leave file logging off for any later spec sharing this singleton
-  log.set_file_log(false)
-  log.set_file_log_path(nil)
 end)
 
 describe("usrcmds.breadcrumbs (wrapper)", function()
@@ -319,6 +328,3 @@ describe("usrcmds.show_weblogs / preview_tab (thin wrappers)", function()
     preview_tab.toggle = orig_toggle
   end)
 end)
-
-ws.send_close = orig_send_close
-vim.notify = orig_notify

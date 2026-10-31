@@ -23,6 +23,12 @@ ws.send_markdown = function(path, markdown, opts)
   sent_payloads = sent_payloads or {}
   sent_payloads[#sent_payloads + 1] = { path = path, markdown = markdown, opts = opts }
 end
+-- teardown() at the top level runs once every block of this file is done (also when one
+-- raises), so the stubs stay in place for every case below.
+teardown(function()
+  session.shutdown()
+  ws.send_markdown = orig_send_markdown
+end)
 
 describe("core.session store/get/init/shutdown", function()
   it("get() is nil for a path never stored", function()
@@ -232,6 +238,3 @@ describe("core.events.store_snapshot_on_enter", function()
     assert.is_nil(session.get(path))
   end)
 end)
-
-session.shutdown()
-ws.send_markdown = orig_send_markdown
