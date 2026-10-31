@@ -41,8 +41,32 @@ return {
     -- whichever case first creates a logger) and guards with its own idempotence flag: deleting
     -- the command would leave that flag lying. Highlight groups (syntax files), options, global
     -- variables (vim.g) and environment variables only ever warn; the specs put the ones they set
-    -- back as well.
-    state = { mode = "error", ignore_usercmds = { "LibLogger" } },
+    -- back as well, except for the two kinds of process-wide state below.
+    state = {
+      mode = "error",
+      ignore_usercmds = { "LibLogger" },
+      -- Neovim's own syntax files (runtime/syntax/markdown.vim with the html, css, dtd,
+      -- javascript, vb, xml and yaml syntax it pulls in, lua.vim and log.vim, loaded when a spec
+      -- sets a buffer's filetype) define their highlight groups once per process;
+      -- `:highlight clear` keeps the names, so a spec cannot take them back.
+      ignore_highlights = {
+        "markdown",
+        "html",
+        "css",
+        "dtd",
+        "javaScr",
+        "vb",
+        "xml",
+        "yaml",
+        "lua",
+        "log",
+        "Log",
+      },
+      -- lib.nvim exports $NVIM_CONFIG_DIR (with its marker) when lib.nvim.fs.roots is first
+      -- required, so child processes resolve it too (health_spec, server_args_spec,
+      -- usrcmds_preview_controls_spec); it is meant to stay for the rest of the session.
+      ignore_env = { "NVIM_CONFIG_DIR", "LIB_NVIM_ROOTS_EXPORTED" },
+    },
   },
   -- What the specs may do on purpose.
   guard_allow = {
