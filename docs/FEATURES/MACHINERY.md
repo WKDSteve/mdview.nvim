@@ -38,8 +38,10 @@ So the content posts of one room (`/update` and `/diff`) share one lane, and its
 `/control` posts another: at most one `curl` in flight per lane, the rest
 queued in order. A queued full text is replaced by a newer one (a burst costs
 the post in flight plus the newest), a queued selection by a newer selection;
-other controls are partial and all go out. A `curl` that never exits frees its
-lane after `LANE_STALL_MS` (5 s).
+other controls are partial and all go out. `/spans` (stored and replayed to
+joining tabs) and `/scroll` have a lane each, where a queued payload is replaced
+by a newer one; `/doc` (browser history) has a lane where every switch goes out
+in order. A `curl` that never exits frees its lane after `LANE_STALL_MS` (5 s).
 
 - **Module:** `lua/mdview/adapter/ws_client.lua` (`lane_post`, `reset_lanes`)
 
