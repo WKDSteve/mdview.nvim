@@ -98,6 +98,13 @@ func TestWatch_BroadcastsOnChange(t *testing.T) {
 
 // A no-op save (same bytes) must not trigger a re-render — the watcher compares
 // content rather than mtime precisely so this case stays quiet.
+//
+// The rewrites are atomic (temp file renamed over the target) and the test waits
+// for the watcher to poll rather than for a fixed time: a plain os.WriteFile
+// truncates first, and a writer stalled on a loaded runner leaves the empty file
+// visible for two polls in a row, which the watcher rightly confirms and
+// broadcasts as a real change. That is the truncate debounce's business, not
+// this test's.
 func TestWatch_IgnoresRewriteWithIdenticalContent(t *testing.T) {
 	dir := t.TempDir()
 	path := filepath.Join(dir, "doc.md")
@@ -106,23 +113,75 @@ func TestWatch_IgnoresRewriteWithIdenticalContent(t *testing.T) {
 	}
 
 	b := &fakeBroadcaster{}
-	stop := make(chan struct{})
-	defer close(stop)
-	go Watch(b, "room", path, 10*time.Millisecond, stop)
+	polls := startCountingWatch(t, b, path)
 
 	if !waitFor(t, func() bool { _, p := b.snapshot(); return len(p) >= 1 }) {
 		t.Fatal("initial broadcast never arrived")
 	}
 	for i := 0; i < 3; i++ {
-		if err := os.WriteFile(path, []byte("same"), 0o644); err != nil {
-			t.Fatal(err)
+		rewriteAtomically(t, path, []byte("same"))
+		// Three polls after the rename: the first may still race with it, the
+		// next two are what a real change would need to be confirmed.
+		seen := polls()
+		if !waitFor(t, func() bool { return polls() >= seen+3 }) {
+			t.Fatal("watcher stopped polling")
 		}
-		time.Sleep(20 * time.Millisecond)
 	}
 
 	_, payloads := b.snapshot()
 	if len(payloads) != 1 {
-		t.Fatalf("expected exactly 1 broadcast for unchanged content, got %d", len(payloads))
+		t.Fatalf("expected exactly 1 broadcast for unchanged content, got %d: %q", len(payloads), payloads)
+	}
+}
+
+// startCountingWatch runs the watcher Watch would run, with a read that counts
+// its calls, so a test can wait for polls instead of sleeping. The watcher is
+// stopped, and waited for, before the test's temp dir is removed.
+func startCountingWatch(t *testing.T, b Broadcaster, path string) func() int {
+	t.Helper()
+	var mu sync.Mutex
+	n := 0
+	w := &watcher{b: b, key: "room", path: path, read: func(p string) ([]byte, error) {
+		content, err := readCapped(p)
+		mu.Lock()
+		n++
+		mu.Unlock()
+		return content, err
+	}}
+	stop := make(chan struct{})
+	done := make(chan struct{})
+	ticker := time.NewTicker(10 * time.Millisecond)
+	go func() {
+		defer close(done)
+		defer ticker.Stop()
+		w.poll()
+		w.run(ticker.C, stop)
+	}()
+	t.Cleanup(func() {
+		close(stop)
+		<-done
+	})
+	return func() int {
+		mu.Lock()
+		defer mu.Unlock()
+		return n
+	}
+}
+
+// rewriteAtomically replaces path with data the way an editor's safe save does,
+// so the watcher never sees a truncated file. The rename holds writeMu like the
+// package's own rewrites: on Windows it fails while readCapped has the file open.
+func rewriteAtomically(t *testing.T, path string, data []byte) {
+	t.Helper()
+	tmp := path + ".tmp"
+	if err := os.WriteFile(tmp, data, 0o644); err != nil {
+		t.Fatal(err)
+	}
+	writeMu.Lock()
+	err := os.Rename(tmp, path)
+	writeMu.Unlock()
+	if err != nil {
+		t.Fatal(err)
 	}
 }
 
