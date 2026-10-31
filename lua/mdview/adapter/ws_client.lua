@@ -427,7 +427,7 @@ local function lane_post(name, entry)
   lane_pump(name)
 end
 
----@param channel "content"|"control"
+---@param channel "content"|"control"|"spans"|"doc"|"scroll"
 ---@param key string
 ---@return string
 local function lane_name(channel, key)
@@ -597,10 +597,13 @@ function M.send_scroll(path, line, total, viewfrac, col)
   if type(col) == "number" then
     body = body .. "/" .. tostring(col)
   end
-  http_post_nonblocking(scroll_url_for(path), body, function() end)
+  -- Through a lane per room: an older position landing after a newer one
+  -- would jump the tab back. Each position is the whole state, so a queued
+  -- one is superseded -- holding `j` costs two curls, not one per line.
+  lane_post(lane_name("scroll", path), { url = scroll_url_for(path), body = body, supersedes = true })
   -- The tabs of other display languages show the same lines: they scroll with it.
   for _, follower in ipairs(require("mdview.core.lang_rooms").followers(path)) do
-    http_post_nonblocking(scroll_url_for(follower), body, function() end)
+    lane_post(lane_name("scroll", follower), { url = scroll_url_for(follower), body = body, supersedes = true })
   end
 end
 
@@ -707,7 +710,9 @@ function M.send_doc(key, doc_path)
   if type(key) ~= "string" or key == "" or type(doc_path) ~= "string" or doc_path == "" or not may_push() then
     return
   end
-  http_post_nonblocking(doc_url_for(key), doc_path, function() end)
+  -- FIFO lane, nothing superseded: every switch is a history entry of its
+  -- own, and two quick switches must not arrive swapped.
+  lane_post(lane_name("doc", key), { url = doc_url_for(key), body = doc_path })
 end
 
 -- Control objects are partial (`{"zoom":1.2}` says nothing about the cursor),
@@ -755,10 +760,14 @@ function M.send_spans(key, json)
   if type(key) ~= "string" or key == "" or not may_push() then
     return
   end
-  http_post_nonblocking(spans_url_for(key), json or "null", function() end)
+  -- Through a lane per room: the relay stores the last spans and replays them
+  -- to joining tabs, so an older payload overtaking a newer one would paint
+  -- code blocks wrong until the next edit. A payload is the whole state.
+  local body = json or "null"
+  lane_post(lane_name("spans", key), { url = spans_url_for(key), body = body, supersedes = true })
   -- The fences are the buffer's and no line moves in a translation: the tabs of other languages paint the same spans.
   for _, follower in ipairs(require("mdview.core.lang_rooms").followers(key)) do
-    http_post_nonblocking(spans_url_for(follower), json or "null", function() end)
+    lane_post(lane_name("spans", follower), { url = spans_url_for(follower), body = body, supersedes = true })
   end
 end
 
