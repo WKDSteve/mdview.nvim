@@ -1,4 +1,5 @@
 ---@module 'mdview.bindings.autocmds.selection_sync'
+-- handrolled-ok: mode changes are never throttled and the trailing send resets the clock; patterns.throttle has one rule for all calls
 -- Mirrors the Neovim visual selection into the open preview: what you select
 -- with v / V / CTRL-V in the buffer is highlighted in the browser, live.
 --
