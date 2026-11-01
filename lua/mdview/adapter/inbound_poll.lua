@@ -1,4 +1,5 @@
 ---@module 'mdview.adapter.inbound_poll'
+-- handrolled-ok: a typing window (is the user still typing), not a throttle
 -- Browser->Neovim polling bridge for the features that need to push events
 -- upstream (Neovim has no WebSocket client, and the relay stays a dumb
 -- byte-forwarder). While a session is active it polls, per tick:
