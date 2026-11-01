@@ -423,3 +423,26 @@ func TestRun_PollsOnEveryTickAndStopsOnStop(t *testing.T) {
 		t.Fatal("run did not return after stop was closed")
 	}
 }
+
+// After a stall a buffered tick fires right behind the previous one: two reads microseconds apart that both see
+// the half-written (here: empty) file must not confirm it. The confirmation needs interval/2 by the clock.
+func TestPoll_ConfirmationNeedsMinimumDistanceByTheClock(t *testing.T) {
+	w, b := newScripted(
+		scriptedRead{content: "one"},
+		scriptedRead{content: ""}, // truncated, not yet written
+		scriptedRead{content: ""}, // the buffered tick right behind it
+		scriptedRead{content: ""}, // a real interval later
+	)
+	clock := time.Unix(1000, 0)
+	w.interval = 500 * time.Millisecond
+	w.now = func() time.Time { return clock }
+	w.poll()
+	expectSent(t, b, "one")
+	w.poll() // empty, pending
+	clock = clock.Add(50 * time.Microsecond)
+	w.poll() // equal but far too soon: not confirmed
+	expectSent(t, b, "one")
+	clock = clock.Add(500 * time.Millisecond)
+	w.poll() // equal and an interval later: now it is the content
+	expectSent(t, b, "one", "")
+}

@@ -52,7 +52,7 @@ func Watch(b Broadcaster, key, path string, interval time.Duration, stop <-chan 
 	if interval <= 0 {
 		interval = DefaultInterval
 	}
-	w := &watcher{b: b, key: key, path: path, read: readCapped}
+	w := &watcher{b: b, key: key, path: path, read: readCapped, interval: interval, now: time.Now}
 	w.poll()
 
 	ticker := time.NewTicker(interval)
@@ -69,10 +69,26 @@ type watcher struct {
 	path string
 	read func(path string) ([]byte, error)
 
+	// interval and now give the confirmation a minimum distance by the clock: two equal reads confirm a change
+	// only when at least interval/2 lies between them. After a stall a buffered ticker tick fires right behind
+	// the previous one, and two reads a few microseconds apart can both see the half-written file of a
+	// non-atomic save. A zero interval (or no clock) means no such gate (tests that step poll by poll).
+	interval  time.Duration
+	now       func() time.Time
+	pendingAt time.Time
+
 	last, pending []byte
 	// hasLast and hasPending are separate from nil checks because an empty
 	// file is a valid value (a reader may return a nil slice for it).
 	hasLast, hasPending, reportedErr bool
+}
+
+// clock is the current time; the zero time without a clock.
+func (w *watcher) clock() time.Time {
+	if w.now == nil {
+		return time.Time{}
+	}
+	return w.now()
 }
 
 // run polls on every tick until stop is closed.
@@ -117,6 +133,11 @@ func (w *watcher) poll() {
 	// is empty, which is exactly what a save caught mid-truncate looks like.
 	if (w.hasLast || len(content) == 0) && !(w.hasPending && bytes.Equal(w.pending, content)) {
 		w.pending, w.hasPending = content, true
+		w.pendingAt = w.clock()
+		return
+	}
+	if w.hasPending && w.interval > 0 && w.clock().Sub(w.pendingAt) < w.interval/2 {
+		// equal, but too soon after the first read to count as confirmation: wait for the next poll
 		return
 	}
 	w.pending, w.hasPending = nil, false
