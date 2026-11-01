@@ -15,6 +15,7 @@ local uv = vim.uv or vim.loop
 local normalize = require("mdview.helper.normalize")
 local log = require("mdview.helper.log")
 local shared_relay = require("mdview.adapter.shared_relay")
+local retry_backoff = require("lib.nvim.patterns.retry_backoff")
 
 -- Unlike config/init.lua's and init.lua's plain `create("")` (no popup,
 -- follows the future global default), these specific messages are health-
@@ -488,7 +489,11 @@ local function try_send_pending(path)
         end)
       end
       if entry.tries < (entry.max_retries or transport().max_retries) then
-        local delay = (transport().base_retry_ms * (2 ^ (entry.tries - 1)))
+        local delay = retry_backoff.delay(entry.tries, {
+          base_ms = transport().base_retry_ms,
+          factor = 2,
+          max_ms = math.huge,
+        })
         vim.defer_fn(function()
           try_send_pending(path)
         end, delay)

@@ -5,6 +5,7 @@
 local ws_client = require("mdview.adapter.ws_client")
 local session = require("mdview.core.session")
 local log = require("mdview.helper.log")
+local retry_backoff = require("lib.nvim.patterns.retry_backoff")
 local vim = vim
 
 local M = {}
@@ -55,7 +56,11 @@ function M.try_push(path, lines, opts)
   ---@return nil
   local function attempt_once()
     attempt = attempt + 1
-    local delay = math.floor(cfg.initial_delay_ms * (cfg.backoff_factor ^ (attempt - 1)))
+    local delay = math.floor(retry_backoff.delay(attempt, {
+      base_ms = cfg.initial_delay_ms,
+      factor = cfg.backoff_factor,
+      max_ms = math.huge,
+    }))
     if cfg.jitter then
       delay = apply_jitter(delay, 0.3)
     end
