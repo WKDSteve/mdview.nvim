@@ -202,6 +202,8 @@ local function resolve_web_root()
   return installed, err, "release"
 end
 
+M.resolve_web_root = resolve_web_root
+
 --- Which binary and bundle `:MDView start` would use, without downloading
 --- anything (a release asset that is not installed yet still gets its path).
 --- Read-only — for :checkhealth.
@@ -310,6 +312,8 @@ local function warn_mismatch_once(binary, web_root)
     notify(msg, vim.log.levels.WARN)
   end
 end
+
+M.warn_mismatch_once = warn_mismatch_once
 
 --- Forget which mismatch warnings were shown (tests).
 ---@internal

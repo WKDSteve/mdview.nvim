@@ -89,7 +89,7 @@ end
 --- (zero-config — and it's --watch-capable, which the pinned release may not be),
 --- then the installed release.
 ---@internal
----@return string|nil path, string|nil err
+---@return string|nil path, string|nil err, mdview.AssetSource|nil source # "dev" override, "local" build, "release"
 local function resolve_binary()
   local cfg = require("mdview.config").defaults.standalone or {}
   local server_args = require("mdview.adapter.server_args")
@@ -103,13 +103,14 @@ local function resolve_binary()
       return nil,
         ("standalone.binary_path is not spawnable: %s (looked for %s)"):format(path, server_args.built_binary_name())
     end
-    return usable, nil
+    return usable, nil, "dev"
   end
   local built = server_args.local_built_binary()
   if built then
-    return built, nil
+    return built, nil, "local"
   end
-  return install.ensure_binary()
+  local path, err = install.ensure_binary()
+  return path, err, "release"
 end
 
 --- Start the relay in standalone watch mode for `file` (default: the current
@@ -153,7 +154,8 @@ function M.run(file_arg, no_browser)
     )
   end
 
-  local bin, bin_err = resolve_binary()
+  local server_args = require("mdview.adapter.server_args")
+  local bin, bin_err, bin_source = resolve_binary()
   if not bin then
     notify("[mdview] standalone: " .. tostring(bin_err), vim.log.levels.ERROR)
     return
@@ -173,11 +175,17 @@ function M.run(file_arg, no_browser)
       return
     end
 
-    local web_root, web_err = install.ensure_client_bundle()
+    -- The bundle that belongs to the relay: `dev.web_root`, the checkout's `dist/client`, else the release (the same
+    -- choice as `:MDView start`); a dev relay with the release bundle is warned about, not silently mixed.
+    local web_root, web_err, web_source = server_args.resolve_web_root()
     if not web_root then
       notify("[mdview] standalone: " .. tostring(web_err), vim.log.levels.ERROR)
       return
     end
+    server_args.warn_mismatch_once(
+      { path = bin, source = bin_source or "release" },
+      { path = web_root, source = web_source or "release" }
+    )
 
     local defaults = require("mdview.config").defaults
     local browser_defaults = require("mdview.config.browser").defaults
