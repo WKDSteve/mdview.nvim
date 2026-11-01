@@ -14,8 +14,6 @@ local autocmd = require("lib.nvim.bindings.autocmd")
 
 local M = {}
 
-local last_sent_at = 0
-
 ---@internal
 ---@return integer
 local function now_ms()
@@ -114,20 +112,30 @@ function M.attach(group)
     return
   end
 
+  ---@type Lib.Patterns.Throttle.Handle|nil
+  local throttled
+  ---@type integer|nil
+  local throttled_ms
+
   local function on_cursor_moved(args)
     if paused then
       return -- :MDView sync pause — don't drag the preview along
     end
-    local throttle_ms = defaults.scroll_sync_throttle_ms or 150
-    local t = now_ms()
-    if t < suppress_until then
+    if now_ms() < suppress_until then
       return -- cursor moved by reverse-scroll; don't echo it back
     end
-    if t - last_sent_at < throttle_ms then
-      return
+    -- Drops a ping that arrives too soon (a transient scroll position needs no
+    -- trailing send). The window is fixed at creation, so it is rebuilt when the
+    -- configured value changes.
+    local ms = defaults.scroll_sync_throttle_ms or 150
+    if not throttled or ms ~= throttled_ms then
+      if throttled then
+        throttled.cancel()
+      end
+      throttled = require("lib.nvim.patterns.throttle").new(M.send_current_position, ms, { trailing = false })
+      throttled_ms = ms
     end
-    last_sent_at = t
-    M.send_current_position(args.buf)
+    throttled.call(args.buf)
   end
 
   local opts = {

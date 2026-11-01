@@ -1,4 +1,5 @@
 ---@module 'mdview.core.display'
+-- handrolled-ok: each run brings its own fn and keeps its own timer (staleness is checked by fn), which lib.nvim.debounce's single latest-call-wins handle cannot express
 --- The display transform: the text the preview shows may differ from the text
 --- of the buffer, as long as it has exactly as many lines.
 ---
