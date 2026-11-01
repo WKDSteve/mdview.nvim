@@ -12,8 +12,6 @@ local hub = require("mdview.bindings.autocmds.enter_hub")
 
 local M = {}
 
-local last_at = 0
-
 ---@param group integer|nil
 function M.attach(group)
   if defaults.breadcrumbs == false then
@@ -23,13 +21,13 @@ function M.attach(group)
   local crumbs = require("mdview.core.breadcrumbs")
   crumbs.clear() -- fresh session
 
+  -- Leading only: a crumb dropped inside the window is not worth a late write.
+  local throttled = require("lib.nvim.patterns.throttle").new(function(buf)
+    pcall(crumbs.record, buf)
+  end, 300, { trailing = false })
+
   local function record(args)
-    local now = (vim.uv or vim.loop).now()
-    if now - last_at < 300 then
-      return
-    end
-    last_at = now
-    pcall(crumbs.record, args.buf)
+    throttled.call(args.buf)
   end
 
   local opts = {
