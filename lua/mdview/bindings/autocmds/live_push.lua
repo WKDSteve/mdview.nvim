@@ -65,10 +65,13 @@ end
 -- trigger a resync. So `lib.nvim.patterns.throttle` runs the first push at once
 -- and defers the rest of the window to a single trailing push with the latest
 -- buffer, guaranteeing the latest content is eventually sent no more than
--- `live_push_throttle_ms` after it was made. Created per attach cycle, so the
--- window follows the configuration at that time.
+-- `live_push_throttle_ms` after it was made. The throttle's window is fixed at
+-- creation, so it is rebuilt when the configured value changes (the option used
+-- to be read on every keystroke).
 ---@type Lib.Patterns.Throttle.Handle|nil
 local push_throttle = nil
+---@type integer|nil
+local push_throttle_ms = nil
 
 ---@internal
 ---@return nil
@@ -192,10 +195,19 @@ function M.attach(group)
     end)
   end
 
-  push_throttle = require("lib.nvim.patterns.throttle").new(push_now, defaults.live_push_throttle_ms or 150)
+  local function throttle_for_config()
+    local ms = defaults.live_push_throttle_ms or 150
+    if push_throttle == nil or ms ~= push_throttle_ms then
+      cancel_pending()
+      push_throttle = require("lib.nvim.patterns.throttle").new(push_now, ms)
+      push_throttle_ms = ms
+    end
+    return push_throttle
+  end
+  throttle_for_config()
 
   local function on_text_changed(args)
-    push_throttle.call(args.buf)
+    throttle_for_config().call(args.buf)
   end
 
   local opts_a = {

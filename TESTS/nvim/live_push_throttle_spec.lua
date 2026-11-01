@@ -77,6 +77,26 @@ describe("live_push TextChanged throttle", function()
     assert.are.equal(2, #pushed, "no further push without further edits")
   end)
 
+  it("follows a changed live_push_throttle_ms without a re-attach", function()
+    local a = md_buffer("throttle_d.md")
+    pushed = {}
+    text_changed(a)
+    assert.are.equal(1, #pushed)
+    text_changed(a) -- pending in the 60ms window
+    defaults.live_push_throttle_ms = 10
+    vim.wait(100, function()
+      return false
+    end, 10)
+    text_changed(a) -- window long over: leading push at once
+    assert.is_true(#pushed >= 2)
+    local before = #pushed
+    defaults.live_push_throttle_ms = 5000
+    text_changed(a) -- rebuilt with the long window: the first call is leading
+    assert.are.equal(before + 1, #pushed)
+    text_changed(a)
+    assert.are.equal(before + 1, #pushed, "inside the new, long window")
+  end)
+
   it("drops the pending trailing push on teardown", function()
     local a = md_buffer("throttle_c.md")
     pushed = {}
