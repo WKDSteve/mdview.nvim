@@ -58,35 +58,23 @@ function M.announce_document(room, path)
   end
 end
 
----@internal
----@return integer
-local function now_ms()
-  local uv = vim.uv or vim.loop
-  return uv.now()
-end
-
--- Throttle state for TextChanged/TextChangedI. Unthrottled, every keystroke
+-- Throttle for TextChanged/TextChangedI. Unthrottled, every keystroke
 -- spawned its own curl process, which is what the throttle exists to stop. Unlike scroll_sync's throttle — which just drops a ping
 -- that arrives too soon, fine for a transient scroll position — dropping a
 -- content push would leave the preview stale indefinitely with nothing else to
--- trigger a resync. So a push inside the throttle window is deferred to a
--- single trailing timer instead of dropped, guaranteeing the latest content is
--- eventually sent no more than throttle_ms after it was made.
-local last_sent_at = 0
-local pending_timer = nil
-local pending_bufnr = nil
+-- trigger a resync. So `lib.nvim.patterns.throttle` runs the first push at once
+-- and defers the rest of the window to a single trailing push with the latest
+-- buffer, guaranteeing the latest content is eventually sent no more than
+-- `live_push_throttle_ms` after it was made. Created per attach cycle, so the
+-- window follows the configuration at that time.
+---@type Lib.Patterns.Throttle.Handle|nil
+local push_throttle = nil
 
 ---@internal
 ---@return nil
 local function cancel_pending()
-  if pending_timer then
-    pending_timer:stop()
-    -- close() can itself error on an already-closing handle; pcall it so a
-    -- teardown race never surfaces as an uncaught error (PERF-62).
-    pcall(function()
-      pending_timer:close()
-    end)
-    pending_timer = nil
+  if push_throttle then
+    push_throttle.cancel()
   end
 end
 M._cancel_pending = cancel_pending -- exposed for teardown (bindings/autocmds/init.lua) and tests
@@ -189,7 +177,6 @@ end
 function M.attach(group)
   log.debug("setting up live push autocmds", nil, "livepush", true)
   M._last_doc = {} -- fresh session: re-announce the document on the first push
-  last_sent_at = 0
   cancel_pending()
 
   ---@internal
@@ -205,38 +192,10 @@ function M.attach(group)
     end)
   end
 
-  local function on_text_changed(args)
-    local throttle_ms = defaults.live_push_throttle_ms or 150
-    local t = now_ms()
-    if t - last_sent_at >= throttle_ms then
-      cancel_pending()
-      last_sent_at = t
-      push_now(args.buf)
-      return
-    end
+  push_throttle = require("lib.nvim.patterns.throttle").new(push_now, defaults.live_push_throttle_ms or 150)
 
-    -- Within the throttle window: remember the latest buffer and make
-    -- sure exactly one trailing push is scheduled for when the window
-    -- ends (don't reschedule on every keystroke, or continuous typing
-    -- would never actually fire one).
-    pending_bufnr = args.buf
-    if not pending_timer then
-      local remaining = throttle_ms - (t - last_sent_at)
-      pending_timer = (vim.uv or vim.loop).new_timer()
-      -- Out of libuv handles: skip the trailing push rather than raising here.
-      -- The leading edge above has already been sent.
-      if pending_timer then
-        pending_timer:start(
-          math.max(0, remaining),
-          0,
-          vim.schedule_wrap(function()
-            cancel_pending()
-            last_sent_at = now_ms()
-            push_now(pending_bufnr)
-          end)
-        )
-      end
-    end
+  local function on_text_changed(args)
+    push_throttle.call(args.buf)
   end
 
   local opts_a = {
