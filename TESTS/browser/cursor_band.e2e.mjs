@@ -18,8 +18,10 @@ const webRoot = resolve(root, 'dist/client');
 const outDir = resolve(process.env.MDVIEW_E2E_OUT ?? resolve(root, 'TESTS/browser/out'));
 const SKIP = 77;
 
+let relay; // started below; a skip after that must not leave it running
 function skip(why) {
   console.log(`SKIP: ${why}`);
+  relay?.kill();
   process.exit(SKIP);
 }
 if (!existsSync(exe)) skip(`relay binary missing: ${exe} (npm run build:go)`);
@@ -38,7 +40,7 @@ const key = 'e2e/band.md';
 const base = `http://127.0.0.1:${port}`;
 const doc = ['# Title', '', 'first paragraph', '', 'second paragraph', '', 'third paragraph', ''].join('\n');
 
-const relay = spawn(exe, ['--port', String(port), '--token', token, '--web-root', webRoot, '--open=false'], {
+relay = spawn(exe, ['--port', String(port), '--token', token, '--web-root', webRoot, '--open=false'], {
   stdio: 'ignore',
 });
 const failures = [];
