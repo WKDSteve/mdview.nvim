@@ -8,6 +8,9 @@
   "engines": {
     "node": ">=18"
   },
+  "allowScripts": {
+    "esbuild": false
+  },
   "scripts": {
     "dev": "concurrently --kill-others \"npm:dev:server\" \"npm:dev:client\"",
     "dev:server": "go run ./native/server --port 43219 --token dev-token --web-root dist/client",
