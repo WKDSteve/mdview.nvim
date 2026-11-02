@@ -102,7 +102,10 @@ describe("standalone.run", function()
     assert.are.equal(TARGET, a[2])
     assert.are.equal("--token", a[3])
     assert.is_truthy(a[4] and #a[4] > 0)
-    assert.are.same({ "--web-root", "/fake/web", "--port", "43319", "--theme", "github", "--hl", "hljs" }, { unpack(a, 5, 12) })
+    assert.are.same(
+      { "--web-root", "/fake/web", "--port", "43319", "--theme", "github", "--hl", "hljs" },
+      { unpack(a, 5, 12) }
+    )
     assert.are.equal(12, #a) -- no --open=false, no --edit
     assert.are.equal("/work/notes", spawned[1].cwd)
     assert.is_true(messages_matching(vim.log.levels.INFO, "standalone preview started (pid 4242)"))
