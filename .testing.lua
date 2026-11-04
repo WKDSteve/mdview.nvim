@@ -62,10 +62,6 @@ return {
         "log",
         "Log",
       },
-      -- lib.nvim exports $NVIM_CONFIG_DIR (with its marker) when lib.nvim.fs.roots is first
-      -- required, so child processes resolve it too (health_spec, server_args_spec,
-      -- usrcmds_preview_controls_spec); it is meant to stay for the rest of the session.
-      ignore_env = { "NVIM_CONFIG_DIR", "LIB_NVIM_ROOTS_EXPORTED" },
     },
   },
   -- What the specs may do on purpose.
