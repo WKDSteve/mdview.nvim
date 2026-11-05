@@ -145,9 +145,13 @@ local function ensure_asset(dir, name)
   end
 
   -- vim.g.lib_binaries = "manual" | "never": nothing is downloaded unasked (lib.nvim.binaries)
-  local allowed, why = require("lib.nvim.binaries").guard("mdview.nvim")
-  if not allowed then
-    return nil, why
+  -- A lib.nvim without the module (older checkout) means "auto", as before.
+  local has_binaries, binaries = pcall(require, "lib.nvim.binaries")
+  if has_binaries then
+    local allowed, why = binaries.guard("mdview.nvim")
+    if not allowed then
+      return nil, why
+    end
   end
 
   local mkdir_ok = pcall(fn.mkdir, dir, "p")
@@ -265,25 +269,28 @@ end
 
 -- Download server and client bundle on request (`lib.nvim.binaries.fetch("mdview.nvim")`, which lifts a
 -- `vim.g.lib_binaries = "manual"` for the call).
-require("lib.nvim.binaries").register("mdview.nvim", {
-  fetch = function()
-    local _, bin_err = M.ensure_binary()
-    if bin_err then
-      return false, bin_err
-    end
-    local _, client_err = M.ensure_client_bundle()
-    if client_err then
-      return false, client_err
-    end
-    return true
-  end,
-  status = function()
-    local s = M.status()
-    return ("server %s, client bundle %s"):format(
-      s.binary_installed and "installed" or "missing",
-      s.client_installed and "installed" or "missing"
-    )
-  end,
-})
+local has_binaries, binaries = pcall(require, "lib.nvim.binaries")
+if has_binaries then
+  binaries.register("mdview.nvim", {
+    fetch = function()
+      local _, bin_err = M.ensure_binary()
+      if bin_err then
+        return false, bin_err
+      end
+      local _, client_err = M.ensure_client_bundle()
+      if client_err then
+        return false, client_err
+      end
+      return true
+    end,
+    status = function()
+      local s = M.status()
+      return ("server %s, client bundle %s"):format(
+        s.binary_installed and "installed" or "missing",
+        s.client_installed and "installed" or "missing"
+      )
+    end,
+  })
+end
 
 return M
