@@ -34,6 +34,12 @@ for a given `install.version`, mdview downloads and checksum-verifies both from
 GitHub Releases into `stdpath("data")/mdview/bin/<version>/` and reuses them
 from then on. Check what is present with `:checkhealth mdview`.
 
+**Downloading only on request.** `vim.g.lib_binaries = "manual"` (a setting of
+[`lib.nvim.binaries`](https://github.com/WKDSteve/lib.nvim/blob/main/lua/lib/nvim/binaries/README.md), shared by all
+plugins that download binaries) stops mdview from downloading anything on its own: `:MDView start` then reports that
+the binaries are on request only. `require("lib.nvim.binaries").fetch("mdview.nvim")` downloads them (a user command
+of your configuration can call it); `"never"` forbids even that. The default is `"auto"`, the behaviour above.
+
 ## Installation variants
 
 | Variant | You need | `setup()` | Use when |
