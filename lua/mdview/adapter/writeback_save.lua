@@ -70,6 +70,10 @@ end
 --- Whether the file on disk changed since the buffer read it. `:update` would
 --- stop at a y/n prompt for that, and asking first is the only way to avoid it:
 --- with a `FileChangedShell` autocmd in place `:checktime` only reports.
+---
+--- Known gap: someone who already answered Neovim's own "file changed" warning
+--- with "keep" is no longer reported here, while `:update` still compares with the
+--- time the buffer was read. That case ends in Neovim's prompt, once.
 ---@param buf integer
 ---@return boolean
 local function changed_on_disk(buf)
@@ -95,6 +99,10 @@ local function save(buf)
   end
   local key, tick = state.key, state.tick
   state.tick = nil
+  if not vim.api.nvim_buf_is_valid(buf) then
+    states[buf] = nil
+    return
+  end
   if not can_save(buf) then
     return
   end

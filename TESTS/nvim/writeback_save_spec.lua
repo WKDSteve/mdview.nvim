@@ -189,6 +189,33 @@ describe("mdview.adapter.writeback_save", function()
     assert.equals("- [x] one", on_disk()[1])
   end)
 
+  it("pushes nothing for the debounced save, and does for a normal write", function()
+    local group = vim.api.nvim_create_augroup("mdview_spec_writeback_push", { clear = true })
+    live.attach(group)
+    live._last_doc[key] = key -- attaching starts a session with no document on screen
+    local waits = 0
+    local wait_ready0 = ws.wait_ready
+    ws.wait_ready = function(cb)
+      waits = waits + 1
+      cb(false)
+    end
+    tick(true)
+    local before = waits
+    settle()
+    local after_save = waits
+    local saved = on_disk()[1]
+    vim.api.nvim_buf_set_lines(buf, 1, 2, false, { "- [x] two" })
+    vim.api.nvim_buf_call(buf, function()
+      vim.cmd("silent write")
+    end)
+    local after_write = waits
+    ws.wait_ready = wait_ready0
+    vim.api.nvim_del_augroup_by_id(group)
+    assert.equals("- [x] one", saved)
+    assert.equals(before, after_save)
+    assert.equals(after_save + 1, after_write)
+  end)
+
   it("is known as the debounced save while it writes, for the push on write", function()
     local during
     vim.api.nvim_create_autocmd("BufWritePost", {
