@@ -1,0 +1,8 @@
+#!/bin/sh
+# core.hooksPath=.husky (set by `husky install`) replaces the global hooks path, so the machine-wide
+# force-push guard would never run in this repository. Hand over to it when this machine has one.
+guard="$(git config --global core.hooksPath)"
+if [ -n "$guard" ] && [ -x "$guard/pre-push" ]; then
+  exec "$guard/pre-push" "$@"
+fi
+exit 0
