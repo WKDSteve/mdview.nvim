@@ -25,6 +25,7 @@
 ---@field browser_cmd string absolute path to executable to force use (isolated mode only)
 ---@field browser_autoclose boolean whether :MDView stop closes the controlled browser (isolated mode only)
 ---@field browser_autostart boolean whether to open the browser automatically on start
+---@field write_back_save_debounce_ms integer|false quiet time before a write-back from the preview is saved; 0 or false is off
 ---@field resolved_browser_cmd string|nil internal, populated by config.browser.resolve_browser_cmd()
 ---@field browser_args string[]|nil extra CLI args for the resolved browser executable (isolated mode only)
 ---@field open_url string|nil static override URL always used instead of the computed key/token URL
@@ -263,6 +264,9 @@ return {
     browser_cmd = "",
     browser_autoclose = true,
     browser_autostart = true,
+    -- Save a buffer this long after the last write-back from the preview
+    -- (checkbox, text field, block edit). 0 or false: only the buffer changes.
+    write_back_save_debounce_ms = 2500,
     resolved_browser_cmd = nil,
     browser_args = nil,
     open_url = nil,

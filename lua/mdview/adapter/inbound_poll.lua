@@ -15,6 +15,7 @@
 local uv = vim.uv or vim.loop
 
 local notify = require("lib.nvim.notify").create("").notify
+local writeback_save = require("mdview.adapter.writeback_save")
 
 local M = {}
 
@@ -563,6 +564,7 @@ local function handle_toggle(key, line, checked, doc, expected)
     if state == want then
       return -- already in the requested state
     end
+    local foreign = writeback_save.has_foreign_changes(buf)
     local ok, err =
       pcall(vim.api.nvim_buf_set_lines, buf, line - 1, line, false, { pre .. want .. post .. (cr > 0 and "\r" or "") })
     if not ok then
@@ -572,6 +574,7 @@ local function handle_toggle(key, line, checked, doc, expected)
     -- Neovim fires TextChanged for a change of the current buffer only; push
     -- explicitly so a buffer shown elsewhere is updated in the preview as well.
     push_result(buf, key)
+    writeback_save.note(buf, key, foreign)
   end)
 end
 
@@ -664,6 +667,7 @@ local function apply_buffer_text(buf, new_text, old, key)
     return -- nothing differs
   end
 
+  local foreign = writeback_save.has_foreign_changes(buf)
   local ok, err =
     pcall(vim.api.nvim_buf_set_lines, buf, first - 1, old_last, false, vim.list_slice(new, first, new_last))
   if not ok then
@@ -671,6 +675,7 @@ local function apply_buffer_text(buf, new_text, old, key)
     return
   end
   push_result(buf, key)
+  writeback_save.note(buf, key, foreign)
 end
 
 -- Opening tags `<tagname ...>` of `text` as { start, end } byte positions. A
@@ -983,6 +988,7 @@ local function handle_edit(key, start, end_, expected, text, doc)
       end
     end
 
+    local foreign = writeback_save.has_foreign_changes(buf)
     local ok, err = pcall(vim.api.nvim_buf_set_lines, buf, start - 1, end_, false, lines)
     if not ok then
       refuse(key, buf, what, tostring(err))
@@ -991,6 +997,7 @@ local function handle_edit(key, start, end_, expected, text, doc)
     -- Neovim fires TextChanged for a change of the current buffer only; push
     -- explicitly so a buffer shown elsewhere is updated in the preview as well.
     push_result(buf, key)
+    writeback_save.note(buf, key, foreign)
   end)
 end
 
@@ -1096,6 +1103,8 @@ function M.stop()
   -- Changes still waiting for the user to stop typing belong to the session that
   -- ended: their closures see the queue is gone and do nothing.
   queues = {}
+  -- What already reached the buffer was meant to be kept.
+  writeback_save.flush()
 end
 
 -- Exposed for headless tests.

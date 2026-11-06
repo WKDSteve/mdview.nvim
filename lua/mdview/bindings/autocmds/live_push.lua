@@ -220,6 +220,11 @@ function M.attach(group)
   autocmd.create({ "TextChanged", "TextChangedI" }, on_text_changed, opts_a)
 
   local function on_write(args)
+    -- The save after a write-back: the preview already shows this text, and a
+    -- re-render could take a field the person is typing in away from them.
+    if require("mdview.adapter.writeback_save").is_saving(args.buf) then
+      return
+    end
     ws_client.wait_ready(function(ok)
       if not ok then
         return

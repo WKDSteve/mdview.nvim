@@ -124,6 +124,13 @@ you just ticked.
 and write their value back. Commits happen on change/blur, never per keystroke,
 so a re-render cannot yank the field out from under you mid-typing.
 
+From Neovim such a change is saved after a short quiet time
+(`browser.write_back_save_debounce_ms`, 2500 ms), so working only in the browser
+does not leave the file behind. A buffer with unsaved changes from Neovim stays
+modified and the tab says so; half finished edits never go to disk unasked. The
+same goes for a file that changed on disk, a buffer without a file on disk yet
+and a read-only one. `:MDView stop` and leaving Neovim save what is still waiting.
+
 Who applies the write depends on who owns the document: in standalone
 (`--watch`) the relay owns the file and edits it directly; from Neovim the
 buffer is the owner. That is the same ownership split the rest of the plugin
