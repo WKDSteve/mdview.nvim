@@ -138,6 +138,27 @@ describe('reaching a block by keyboard', () => {
     expect(heading(root).textContent).toBe('New');
   });
 
+  it('does not pull the focus back after a pointer press, nor after Escape on a later render', async () => {
+    const { root } = setup();
+    key(heading(root), { key: 'Enter' });
+    field(root).value = '# New';
+    key(field(root), { key: 'Enter' });
+    document.dispatchEvent(new window.Event('pointerdown'));
+    (document.activeElement as HTMLElement).blur();
+    heading(root).remove();
+    root.insertAdjacentHTML('afterbegin', '<h1 data-sourcepos="1:1-1:5">New</h1>');
+    await Promise.resolve();
+    expect(document.activeElement).toBe(document.body);
+
+    key(heading(root), { key: 'Enter' });
+    key(field(root), { key: 'Escape' });
+    (document.activeElement as HTMLElement).blur();
+    heading(root).remove();
+    root.insertAdjacentHTML('afterbegin', '<h1 data-sourcepos="1:1-1:5">Later</h1>');
+    await Promise.resolve();
+    expect(document.activeElement).toBe(document.body);
+  });
+
   it('does not pull the focus back to a block once it moved elsewhere', async () => {
     const { root } = setup();
     key(heading(root), { key: 'Enter' });

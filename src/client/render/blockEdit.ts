@@ -223,13 +223,25 @@ export function installBlockEdit(container: HTMLElement, opts: BlockEditOptions)
     if (refocusLine === null) return;
     const focused = document.activeElement;
     if (focused && focused !== document.body) {
-      // Moved on to something else; on a block, wait: the render may still replace it.
-      if (!focused.hasAttribute(KEYBOARD_MARK)) refocusLine = null;
+      // Still on that block: the render may yet replace it. Anywhere else: moved on.
+      if (rangeOf(focused)?.start !== refocusLine) refocusLine = null;
       return;
     }
     const marked = Array.from(container.querySelectorAll<HTMLElement>(`[${KEYBOARD_MARK}]`));
-    marked.find(el => rangeOf(el)?.start === refocusLine)?.focus();
+    const block = marked.find(el => rangeOf(el)?.start === refocusLine);
+    if (block) {
+      block.focus();
+      refocusLine = null;
+    }
   };
+  // A pointer takes over: a later render must not pull the focus (and the scroll) back.
+  document.addEventListener(
+    'pointerdown',
+    () => {
+      refocusLine = null;
+    },
+    true,
+  );
 
   const sync = (): void => {
     const wanted = new Set(opts.isEnabled() ? keyboardBlocks(container) : []);
@@ -340,6 +352,8 @@ export function installBlockEdit(container: HTMLElement, opts: BlockEditOptions)
           refocusLine = range.start;
           commit(range, expected, doc);
           refocus();
+          // Once more for the render this commit brings, which replaces the block.
+          refocusLine = range.start;
         }
       }
     });
