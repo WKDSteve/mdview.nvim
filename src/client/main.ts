@@ -697,6 +697,7 @@ async function boot() {
       writeEditState(token ?? '', key ?? '', editEnabled);
       container.classList.toggle('mdview-edit', editEnabled);
       if (!editEnabled) blockEditor?.cancel();
+      blockEditor?.sync();
     }
     if (msg.selectionSync !== undefined && container) {
       // `:MDView selection` switching the mirror on/off for this session. The

@@ -15,7 +15,16 @@ import {
   trimBlankTail,
 } from '../../src/client/render/blockEdit';
 
-const DOC = ['# Title', '', 'first line', 'second line', '', '- item one', '  - nested', '- item two'].join('\n');
+const DOC = [
+  '# Title',
+  '',
+  'first line',
+  'second line',
+  '',
+  '- item one',
+  '  - nested',
+  '- item two',
+].join('\n');
 
 function setup(enabled = true, text = DOC, doc: string | null = '/notes/a.md') {
   const root = document.createElement('div');
@@ -55,6 +64,93 @@ function key(el: Element, init: KeyboardEventInit) {
 function field(root: Element): HTMLTextAreaElement {
   return root.querySelector('.mdview-block-editor') as HTMLTextAreaElement;
 }
+
+describe('reaching a block by keyboard', () => {
+  const heading = (root: Element) => root.querySelector('h1') as HTMLElement;
+
+  it('makes blocks Tab stops with a hint, only while editing is on', () => {
+    const { root, state, editor } = setup();
+    expect(heading(root).tabIndex).toBe(0);
+    expect(heading(root).getAttribute('aria-description')).toBe('Press Enter to edit');
+    expect(root.querySelector('ul')?.hasAttribute('tabindex')).toBe(false);
+    state.enabled = false;
+    editor.sync();
+    expect(heading(root).hasAttribute('tabindex')).toBe(false);
+    expect(heading(root).hasAttribute('aria-description')).toBe(false);
+  });
+
+  it('leaves private blocks and a block holding one out', () => {
+    const { root, editor } = setup();
+    root.innerHTML =
+      '<p data-private data-sourcepos="1:1-1:5">hidden</p>' +
+      '<blockquote data-sourcepos="3:1-3:5"><span data-private>x</span></blockquote>';
+    editor.sync();
+    expect(root.querySelector('[tabindex]')).toBeNull();
+  });
+
+  it('stops at the paragraph of a loose list item, not at the item too', () => {
+    const { root, editor } = setup();
+    root.innerHTML = '<ul><li data-sourcepos="1:1-1:5"><p data-sourcepos="1:3-1:5">x</p></li></ul>';
+    editor.sync();
+    expect(root.querySelector('li')?.hasAttribute('tabindex')).toBe(false);
+    expect(root.querySelector('p')?.hasAttribute('tabindex')).toBe(true);
+  });
+
+  it('marks the blocks of a new render', async () => {
+    const { root } = setup();
+    root.innerHTML = '<h2 data-sourcepos="1:1-1:7">Title</h2>';
+    await Promise.resolve();
+    expect(root.querySelector('h2')?.hasAttribute('tabindex')).toBe(true);
+  });
+
+  it('opens the editor on Enter on the block, not on a link inside it', () => {
+    const { root, editor } = setup();
+    key(root.querySelector('a') as Element, { key: 'Enter' });
+    expect(editor.isEditing()).toBe(false);
+    key(heading(root), { key: 'Enter', shiftKey: true });
+    expect(editor.isEditing()).toBe(false);
+    key(heading(root), { key: 'Enter' });
+    expect(editor.isEditing()).toBe(true);
+    expect(field(root).value).toBe('# Title');
+    expect(document.activeElement).toBe(field(root));
+  });
+
+  it('gives the focus back to the block after Escape', () => {
+    const { root, send } = setup();
+    key(heading(root), { key: 'Enter' });
+    key(field(root), { key: 'Escape' });
+    expect(document.activeElement).toBe(heading(root));
+    expect(send).not.toHaveBeenCalled();
+  });
+
+  it('gives the focus back after a commit, also to the block of the new render', async () => {
+    const { root, send } = setup();
+    key(heading(root), { key: 'Enter' });
+    field(root).value = '# New';
+    key(field(root), { key: 'Enter' });
+    expect(send).toHaveBeenCalledTimes(1);
+    expect(document.activeElement).toBe(heading(root));
+
+    heading(root).remove();
+    root.insertAdjacentHTML('afterbegin', '<h1 data-sourcepos="1:1-1:5">New</h1>');
+    await Promise.resolve();
+    expect(document.activeElement).toBe(heading(root));
+    expect(heading(root).textContent).toBe('New');
+  });
+
+  it('does not pull the focus back to a block once it moved elsewhere', async () => {
+    const { root } = setup();
+    key(heading(root), { key: 'Enter' });
+    key(field(root), { key: 'Escape' });
+    const other = document.createElement('button');
+    document.body.appendChild(other);
+    other.focus();
+    heading(root).remove();
+    root.insertAdjacentHTML('afterbegin', '<h1 data-sourcepos="1:1-1:5">New</h1>');
+    await Promise.resolve();
+    expect(document.activeElement).toBe(other);
+  });
+});
 
 describe('parseSourcePos / rangeOf / sliceLines', () => {
   it('parses comrak positions and refuses malformed ones', () => {
@@ -191,7 +287,12 @@ describe('installBlockEdit (real DOM)', () => {
     f.value = '# B';
     f.blur(); // real blur: focus leaves the field
     expect(send).toHaveBeenCalledTimes(1);
-    expect(send.mock.calls[0][0]).toMatchObject({ start: 1, end: 1, expected: '# Title', text: '# B' });
+    expect(send.mock.calls[0][0]).toMatchObject({
+      start: 1,
+      end: 1,
+      expected: '# Title',
+      text: '# B',
+    });
     // Chromium fires blur when the focused field is removed: no second commit
     f.dispatchEvent(new window.FocusEvent('blur'));
     expect(send).toHaveBeenCalledTimes(1);
@@ -329,7 +430,11 @@ describe('installBlockEdit, review round 3', () => {
     click(root.querySelector('p')!);
     const f = field(root);
     f.setSelectionRange(0, 0);
-    const tab = new window.KeyboardEvent('keydown', { key: 'Tab', bubbles: true, cancelable: true });
+    const tab = new window.KeyboardEvent('keydown', {
+      key: 'Tab',
+      bubbles: true,
+      cancelable: true,
+    });
     f.dispatchEvent(tab);
     expect(tab.defaultPrevented).toBe(true);
     expect(f.value.startsWith('\tfirst line')).toBe(true);

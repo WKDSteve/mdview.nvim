@@ -1,8 +1,8 @@
 // src/client/render/blockEdit.ts
 //
 // Block editing. Clicking a rendered block (heading, paragraph, list item,
-// code block, table, quote) swaps it for a text field holding that block's
-// *source lines*; committing the edit sends the lines back so the source is
+// code block, table, quote), or Enter on one reached with Tab, swaps it for a
+// text field holding that block's *source lines*; committing the edit sends the lines back so the source is
 // rewritten and the change flows back through the normal push path.
 //
 // Why raw source and not contenteditable: the rendered HTML has lost the
@@ -184,6 +184,29 @@ export interface BlockEditor {
   isEditing: () => boolean;
   /** Close an open editor without sending anything. */
   cancel: () => void;
+  /** Editing was switched on or off: make the blocks reachable by Tab, or not. */
+  sync: () => void;
+}
+
+/** Marks a block that Tab can reach. Set only while editing is on. */
+const KEYBOARD_MARK = 'data-mdview-editable';
+const KEYBOARD_HINT = 'Press Enter to edit';
+
+/**
+ * The blocks Tab stops at. Not one that holds another editable unit directly (a
+ * loose list item, a quote): its paragraph is the stop, as a click there opens
+ * the paragraph. A nested list is not such a unit, the item has text of its own.
+ */
+function keyboardBlocks(container: HTMLElement): HTMLElement[] {
+  return Array.from(container.querySelectorAll<HTMLElement>('[data-sourcepos]')).filter(
+    el =>
+      EDITABLE_TAGS.has(el.tagName) &&
+      !el.closest(PRIVATE) &&
+      !el.querySelector(PRIVATE) &&
+      !Array.from(el.children).some(
+        child => EDITABLE_TAGS.has(child.tagName) && child.hasAttribute('data-sourcepos'),
+      ),
+  );
 }
 
 /**
@@ -192,6 +215,37 @@ export interface BlockEditor {
  */
 export function installBlockEdit(container: HTMLElement, opts: BlockEditOptions): BlockEditor {
   let active: { field: HTMLInputElement | HTMLTextAreaElement; block: HTMLElement } | null = null;
+  // The first source line of the block a keyboard edit just left: a commit re-renders,
+  // which replaces the block, and the keyboard user is to stay where they were.
+  let refocusLine: number | null = null;
+
+  const refocus = (): void => {
+    if (refocusLine === null) return;
+    const focused = document.activeElement;
+    if (focused && focused !== document.body) {
+      // Moved on to something else; on a block, wait: the render may still replace it.
+      if (!focused.hasAttribute(KEYBOARD_MARK)) refocusLine = null;
+      return;
+    }
+    const marked = Array.from(container.querySelectorAll<HTMLElement>(`[${KEYBOARD_MARK}]`));
+    marked.find(el => rangeOf(el)?.start === refocusLine)?.focus();
+  };
+
+  const sync = (): void => {
+    const wanted = new Set(opts.isEnabled() ? keyboardBlocks(container) : []);
+    container.querySelectorAll<HTMLElement>(`[${KEYBOARD_MARK}]`).forEach(el => {
+      if (wanted.has(el)) return;
+      el.removeAttribute(KEYBOARD_MARK);
+      el.removeAttribute('tabindex');
+      el.removeAttribute('aria-description');
+    });
+    wanted.forEach(el => {
+      el.setAttribute(KEYBOARD_MARK, '');
+      el.tabIndex = 0;
+      el.setAttribute('aria-description', KEYBOARD_HINT);
+    });
+    refocus();
+  };
 
   const close = (): void => {
     if (!active) return;
@@ -267,7 +321,9 @@ export function installBlockEdit(container: HTMLElement, opts: BlockEditOptions)
       if (k.isComposing || k.keyCode === 229) return;
       if (k.key === 'Escape') {
         k.preventDefault();
+        refocusLine = range.start;
         close();
+        refocus();
       } else if (k.key === 'Tab' && !k.shiftKey && !k.ctrlKey && !k.metaKey && !k.altKey) {
         // Indentation (nested lists, code, YAML), not a way out of the field:
         // leaving it commits. Shift+Tab, Ctrl/Cmd+Enter or a click elsewhere
@@ -281,7 +337,9 @@ export function installBlockEdit(container: HTMLElement, opts: BlockEditOptions)
         // the Enter that was meant as a line break.
         if ((oneLine && !k.shiftKey) || k.ctrlKey || k.metaKey) {
           k.preventDefault();
+          refocusLine = range.start;
           commit(range, expected, doc);
+          refocus();
         }
       }
     });
@@ -311,8 +369,25 @@ export function installBlockEdit(container: HTMLElement, opts: BlockEditOptions)
     if (block) open(block);
   });
 
+  container.addEventListener('keydown', (ev: KeyboardEvent) => {
+    if (!opts.isEnabled() || active) return;
+    if (ev.key !== 'Enter' || ev.ctrlKey || ev.metaKey || ev.shiftKey || ev.altKey) return;
+    // The block itself: Enter on a link inside it follows the link.
+    const block = ev.target;
+    if (!(block instanceof HTMLElement) || !block.hasAttribute(KEYBOARD_MARK)) return;
+    ev.preventDefault();
+    open(block);
+  });
+
+  // A render replaces the blocks; only then are the new ones there to mark.
+  new MutationObserver(() => {
+    if (opts.isEnabled() || container.querySelector(`[${KEYBOARD_MARK}]`)) sync();
+  }).observe(container, { childList: true, subtree: true });
+  sync();
+
   return {
     isEditing: () => active !== null,
     cancel: close,
+    sync,
   };
 }
