@@ -138,3 +138,24 @@ says what each one answers.
 ## License
 
 MIT — see [LICENSE](LICENSE).
+
+<!-- connections:begin (written by the app-icons tool of the workshop; change integrations.json there, not this block) -->
+## Connections
+
+![mdview.nvim: what it uses and what uses it](assets/graphs/mdview.nvim.png)
+
+**Uses**
+
+- [color_my_ascii.nvim](https://github.com/WKDSteve/color_my_ascii.nvim): mdview.nvim asks color_my_ascii.nvim which fences to color in the preview (`color_my_ascii.fences`). ([picture](assets/graphs/pair/mdview.nvim--color_my_ascii.nvim.png))
+- [language.nvim](https://github.com/WKDSteve/language.nvim): mdview.nvim translates the preview of a Markdown document with language.nvim (`translate_markdown`) when it is installed. ([picture](assets/graphs/pair/mdview.nvim--language.nvim.png))
+- [spotlight.nvim](https://github.com/WKDSteve/spotlight.nvim): mdview.nvim keeps its preview in step with spotlight.nvim by listening to its `SpotlightChanged` event (`spotlight.core.events`). ([picture](assets/graphs/pair/mdview.nvim--spotlight.nvim.png))
+- [lib.nvim](https://github.com/WKDSteve/lib.nvim): the shared base of the plugins.
+
+**Used by**
+
+- [docmap.nvim](https://github.com/WKDSteve/docmap.nvim): docmap.nvim publishes its overview as Markdown to a running preview of mdview.nvim (`mdview.adapter.ws_client`). ([picture](assets/graphs/pair/docmap.nvim--mdview.nvim.png))
+- [filetree.nvim](https://github.com/WKDSteve/filetree.nvim): filetree.nvim opens a Markdown file in the preview of mdview.nvim (`features.system.mdview_open`). ([picture](assets/graphs/pair/filetree.nvim--mdview.nvim.png))
+- [markdown.nvim](https://github.com/WKDSteve/markdown.nvim): markdown.nvim offers `:Markdown preview` and `:Markdown mdview` when mdview.nvim is installed. ([picture](assets/graphs/pair/markdown.nvim--mdview.nvim.png))
+- [runtime-analysis.nvim](https://github.com/WKDSteve/runtime-analysis.nvim): The report styles `auto`, `mdview` and `preview-tab` of runtime-analysis.nvim open the report through mdview.nvim. ([picture](assets/graphs/pair/runtime-analysis.nvim--mdview.nvim.png))
+- [tasks.nvim](https://github.com/WKDSteve/tasks.nvim): tasks.nvim offers `:Tasks preview` and `--to=mdview` when mdview.nvim is installed. ([picture](assets/graphs/pair/tasks.nvim--mdview.nvim.png))
+<!-- connections:end -->
