@@ -44,6 +44,20 @@ describe("probe_platform_paths", function()
     end)
   end
 
+  if mac then
+    -- Without a case of its own the file asserted nothing on macOS (red under assertions = "error").
+    it("probes the app bundles under /Applications", function()
+      local paths = probe()
+      local want = {
+        "/Applications/Google Chrome.app/Contents/MacOS/Google Chrome",
+        "/Applications/Microsoft Edge.app/Contents/MacOS/Microsoft Edge",
+      }
+      for _, p in ipairs(want) do
+        assert.is_true(vim.tbl_contains(paths, p), "expected the candidate " .. p)
+      end
+    end)
+  end
+
   if linux then
     it("probes the real microsoft-edge binary name, not the Windows-only 'msedge'", function()
       local paths = probe()
