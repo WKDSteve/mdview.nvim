@@ -4,7 +4,8 @@
 #   shared with the Node job via an artifact
 # - Node/TypeScript: install, lint, type-check, test, build client
 # - Go: vet, build, test the relay server
-# - Lua: luacheck + the Lua/Neovim specs (testing.nvim)
+# - Lua: luacheck + the conformance gate (testing.nvim); the Lua/Neovim specs
+#   run in the nvim-specs matrix (ubuntu, windows, macos)
 # - Release (tag pushes only): cross-compile the relay server, package the
 #   client bundle, publish both to a GitHub Release for mdview.nvim's
 #   install.lua to download
@@ -147,7 +148,8 @@ jobs:
 
       # Install a recent Neovim from the official release, not apt (which ships
       # an old version): the headless specs use APIs like nvim_set_option_value
-      # (0.10+), and this also matches what real users run.
+      # (0.10+), and this also matches what real users run. The conformance gate
+      # below loads the plugin in it.
       - name: Install Neovim (stable release)
         run: |
           curl -fsSL https://github.com/neovim/neovim/releases/download/stable/nvim-linux-x86_64.tar.gz -o nvim.tar.gz
@@ -159,7 +161,7 @@ jobs:
 
       # mdview.nvim depends on lib.nvim at runtime (see README's Installation
       # section). luacheck is purely static and doesn't need it resolvable, but
-      # the specs run below do.
+      # the conformance gate below loads the plugin.
       - name: Clone lib.nvim (runtime dependency, needed to resolve require("lib.nvim...."))
         uses: actions/checkout@v5
         with:
@@ -182,35 +184,17 @@ jobs:
           repository: "WKDSteve/testing.nvim"
           path: .deps/testing.nvim
           ref: ci-verified
-      - name: Run Lua specs with testing.nvim
-        # Every spec under TESTS/ (roots and isolation come from .testing.lua).
-        # The nvim-specs job below runs the same suite on all three platforms.
-        run: |
-          exec > >(tee -a "$RUNNER_TEMP/test-output.log") 2>&1
-          bash scripts/test.sh --json "$RUNNER_TEMP/testing-ir.json"
+      # The suite itself runs in the nvim-specs job below (ubuntu among its three
+      # platforms); running it here as well ran it twice on ubuntu.
       - name: Conformance gate
         run: bash scripts/test.sh conformance
-      # The IR is what a reporter or a person reads to find out WHICH case failed on WHICH platform.
-      - uses: actions/upload-artifact@v7
-        if: failure()
-        with:
-          name: testing-ir-lua
-          path: ${{ runner.temp }}/testing-ir.json
-          if-no-files-found: ignore
-          retention-days: 14
-      - uses: actions/upload-artifact@v7
-        if: failure()
-        with:
-          name: test-output-lua
-          path: ${{ runner.temp }}/test-output.log
-          if-no-files-found: ignore
-          retention-days: 14
 
   # Split out of the `lua` job above, which cannot move: it builds a Lua 5.3
   # toolchain via apt and downloads a hardcoded nvim-linux-x86_64 tarball, both
   # Linux-only by construction. The specs under TESTS/nvim/ need none of that
   # -- only a Neovim -- so they run on all three platforms here instead, which
-  # is where platform assumptions in the plugin's own Lua would show up.
+  # is where platform assumptions in the plugin's own Lua would show up. It is
+  # the only job that runs the suite.
   nvim-specs:
     name: headless nvim specs (${{ matrix.os }})
     runs-on: ${{ matrix.os }}
@@ -319,7 +303,7 @@ jobs:
   release:
     name: Release (tag push only)
     if: startsWith(github.ref, 'refs/tags/v')
-    needs: [rust, node, go, lua]
+    needs: [rust, node, go, lua, nvim-specs]
     runs-on: ubuntu-latest
     timeout-minutes: 30
     permissions:
