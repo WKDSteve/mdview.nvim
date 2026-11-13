@@ -23,10 +23,13 @@ bash scripts/test.sh --file config     # only files whose name contains "config"
 bash scripts/test.sh --json ir.json    # also write the machine-readable result
 ```
 
-Two cases (`enter_hub_spec.lua` "reset() is safe to call twice",
-`launcher_url_spec.lua` "on other Unix, follows DISPLAY/WAYLAND_DISPLAY")
-assert nothing on some platforms; `assertions = "warn"` in `.testing.lua` lets
-them pass with a note.
+Every case asserts something (`assertions` keeps testing.nvim's default
+`"error"`: a case without an assertion fails). A case that only applies on
+some platforms (`launcher_url_spec.lua` "is always true on Windows/macOS" /
+"on other Unix ...", the two Windows-only cases of `server_args_spec.lua`,
+`browser_e2e_spec.lua` without node or its prerequisites) prints
+`n/a  <reason>` and returns elsewhere: reported as not applicable, never a
+silent pass.
 
 The state guard is strict (`state = "error"` in `.testing.lua`): a case that
 leaves a buffer, window, tab page, autocmd, keymap or user command behind
@@ -362,7 +365,7 @@ Not stale skip reasons — these two were simply never mentioned by round 25's
   real independent copy, not an aliased reference.
 - `bindings/usrcmds/init.lua` — `M.attach()` (the `:MDView` route-tree
   registration) was never exercised at all: the harness deliberately never
-  calls `require("mdview").setup()` (see harness.lua's own comment), the only
+  calls `require("mdview").setup()` (see "Neither root calls ..." above), the only
   normal path to it. The giant route table itself stays undertested by
   design (every route's target is already covered directly in its own spec —
   same reasoning as `bindings/autocmds/init.lua`'s wiring exclusion above),

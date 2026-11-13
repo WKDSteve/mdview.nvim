@@ -66,6 +66,7 @@ describe("server_args.spawnable", function()
   it("on Windows, refuses an extension-less file and takes the .exe beside it", function()
     if not windows then
       -- Elsewhere the extension-less file *is* the binary — covered above.
+      print("n/a  needs Windows")
       return
     end
     with_tempdir(function(dir)
@@ -87,6 +88,7 @@ describe("server_args.spawnable", function()
   it("gives the same answer whatever 'shell' is set to", function()
     if not windows then
       -- 'shell' never enters the question elsewhere.
+      print("n/a  needs Windows")
       return
     end
     -- The case above hid for as long as it did because executable() on Windows

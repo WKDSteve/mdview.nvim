@@ -19,10 +19,6 @@ return {
   -- "c" = child started from a -c command (v:vim_did_enter is 0, <cword> works),
   -- "l" = `nvim -l`.
   host = "c",
-  -- Two cases assert nothing on some platforms (enter_hub_spec "reset() is safe to call twice": the
-  -- point is that it does not raise; launcher_url_spec "on other Unix": early return on Windows/macOS).
-  -- The specs stay as they are, so such cases pass with a note instead of failing.
-  assertions = "warn",
   -- Environment variables the specs read; a child editor inherits an allowlist only (never secrets).
   env_allow = { "LIB_NVIM_PATH" },
   -- Guards (safety nets around each case, see testing.nvim's docs/GUARDS.md). The suite passes

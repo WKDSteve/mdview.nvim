@@ -270,13 +270,16 @@ end)
 
 describe("launcher.has_display", function()
   it("is always true on Windows/macOS", function()
-    if vim.fn.has("win32") == 1 or vim.fn.has("mac") == 1 then
-      assert.is_true(launcher.has_display())
+    if vim.fn.has("win32") ~= 1 and vim.fn.has("mac") ~= 1 then
+      print("n/a  needs Windows or macOS (other Unix is the next case)")
+      return
     end
+    assert.is_true(launcher.has_display())
   end)
 
   it("on other Unix, follows DISPLAY/WAYLAND_DISPLAY", function()
     if vim.fn.has("win32") == 1 or vim.fn.has("mac") == 1 then
+      print("n/a  needs a Unix other than macOS (Windows/macOS are the case above)")
       return
     end
     local d0, w0 = vim.env.DISPLAY, vim.env.WAYLAND_DISPLAY
