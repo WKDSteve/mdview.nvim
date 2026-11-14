@@ -158,4 +158,5 @@ MIT — see [LICENSE](LICENSE).
 - [markdown.nvim](https://github.com/WKDSteve/markdown.nvim): markdown.nvim offers `:Markdown preview` and `:Markdown mdview` when mdview.nvim is installed. ([picture](assets/graphs/pair/markdown.nvim--mdview.nvim.png))
 - [runtime-analysis.nvim](https://github.com/WKDSteve/runtime-analysis.nvim): The report styles `auto`, `mdview` and `preview-tab` of runtime-analysis.nvim open the report through mdview.nvim. ([picture](assets/graphs/pair/runtime-analysis.nvim--mdview.nvim.png))
 - [tasks.nvim](https://github.com/WKDSteve/tasks.nvim): tasks.nvim offers `:Tasks preview` and `--to=mdview` when mdview.nvim is installed. ([picture](assets/graphs/pair/tasks.nvim--mdview.nvim.png))
+- [testing.nvim](https://github.com/WKDSteve/testing.nvim): The browser steps of a test sheet borrow `playwright-core` from the `node_modules` of a sibling mdview.nvim checkout when the project has none. ([picture](assets/graphs/pair/testing.nvim--mdview.nvim.png))
 <!-- connections:end -->
