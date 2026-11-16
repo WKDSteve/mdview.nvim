@@ -208,13 +208,15 @@ try {
   // A blank line between blocks: the thin band right below the previous block.
   await cursorAt(4);
   const onBlank = await band();
+  // Measured again after the ping: a ping may scroll the page, and both boxes are in viewport coordinates.
+  const previous = await blockBox('p', 'word1 ');
   check(
     onBlank.shown && near(onBlank.height, 4, 1),
     `the band on a blank line is 4px high (${onBlank.height}px)`,
   );
   check(
-    near(onBlank.top, wrapped.bottom, 2),
-    `the thin band starts at the bottom of the previous block (${onBlank.top.toFixed(1)} vs ${wrapped.bottom.toFixed(1)})`,
+    near(onBlank.top, previous.bottom, 2),
+    `the thin band starts at the bottom of the previous block (${onBlank.top.toFixed(1)} vs ${previous.bottom.toFixed(1)})`,
   );
 
   mkdirSync(outDir, { recursive: true });
