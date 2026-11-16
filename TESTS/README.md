@@ -32,7 +32,8 @@ some platforms (`launcher_url_spec.lua` "is always true on Windows/macOS" /
 silent pass.
 
 `browser_e2e_spec.lua` (tier 3) runs the Playwright scripts of
-`TESTS/browser/` (`cursor_band`, `cursor_band_cases`, `anchor_jump`; also
+`TESTS/browser/` (`cursor_band`, `cursor_band_cases`, `anchor_jump`,
+`spotlight_mirror`; also
 `npm run test:browser` and the CI job `browser`). Each case starts a relay
 and a chromium of its own, about 3 s idle and up to 10 s under load, so
 `.testing.lua` raises `timeouts.case_ms` to 30 s (testing.nvim has no

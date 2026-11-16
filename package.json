@@ -30,7 +30,7 @@
     "test:go": "cd native/server && go test ./...",
     "test:rust": "cd native/wasm-render && cargo test",
     "test:lua": "bash scripts/test.sh",
-    "test:browser": "node TESTS/browser/cursor_band.e2e.mjs && node TESTS/browser/cursor_band_cases.e2e.mjs && node TESTS/browser/anchor_jump.e2e.mjs",
+    "test:browser": "node TESTS/browser/cursor_band.e2e.mjs && node TESTS/browser/cursor_band_cases.e2e.mjs && node TESTS/browser/anchor_jump.e2e.mjs && node TESTS/browser/spotlight_mirror.e2e.mjs",
     "check:types": "tsc -p tsconfig.json --noEmit",
     "prepare": "husky install"
   },

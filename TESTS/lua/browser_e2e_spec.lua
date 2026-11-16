@@ -58,4 +58,17 @@ describe("browser e2e (tier 3)", function()
     end
     assert(code == 0, out)
   end)
+
+  it("@spawn @network the spotlight mirror marks, recolors, clears, replays and caps in the tab", function()
+    if vim.fn.executable("node") ~= 1 then
+      print("n/a  node is not installed")
+      return
+    end
+    local code, out = run("spotlight_mirror.e2e.mjs")
+    if code == SKIP then
+      print("n/a  " .. out:gsub("%s+$", ""))
+      return
+    end
+    assert(code == 0, out)
+  end)
 end)

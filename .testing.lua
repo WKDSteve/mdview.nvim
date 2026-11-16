@@ -23,7 +23,7 @@ return {
   env_allow = { "LIB_NVIM_PATH" },
   -- The tier-3 cases (TESTS/lua/browser_e2e_spec.lua) each start a relay and a chromium in a node process of
   -- their own: 3 s on an idle machine, up to 10 s under load, which once hit the default 10 s case timeout.
-  -- testing.nvim has no per-case timeout, so the project's limits leave them room (three such cases per file).
+  -- testing.nvim has no per-case timeout, so the project's limits leave them room (four such cases per file).
   timeouts = { case_ms = 30000, file_ms = 120000 },
   -- Guards (safety nets around each case, see testing.nvim's docs/GUARDS.md). The suite passes
   -- the fs, prompt, deprecation and scheduled-error guards cleanly, so those fail the case.
