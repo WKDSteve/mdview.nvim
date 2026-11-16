@@ -219,6 +219,8 @@ describe("inbound write-backs, round 4", function()
     end, 50)
     local again = make_buf("mdview_spec_round4_gone3.md", { "y" })
     vim.api.nvim_set_current_buf(again)
+    -- Still typing: the wait above (longer under load) must not run out the one-second typing window.
+    typing(true)
     inbound._when_not_inserting(again, function() end)
     assert.is_true(first >= 1)
     assert.is_true(#notes >= first + 1)
