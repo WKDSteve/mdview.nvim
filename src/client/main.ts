@@ -17,6 +17,8 @@ import { pickScrollTarget, fractionInBlock, hasSourcepos } from './render/scroll
 import { markExternalLinks, parseExternalLinkMode } from './render/externalLinks';
 import { resolveLocalImages } from './render/localImages';
 import { installLinkHover } from './render/linkHover';
+import { installAnchorJump } from './render/anchorJump';
+import { scrollToBlock } from './render/docModel';
 import {
   updateCursorMarker,
   parseCursorMarkerMode,
@@ -430,6 +432,13 @@ async function boot() {
   // renderDocument. Opt-out via ?hover=0.
   if (container && params.get('hover') !== '0') {
     installLinkHover(container, { key, token });
+  }
+
+  // In-page anchor links (a TOC's `[Setup](#setup)`) jump to their heading.
+  // The rendered headings carry no ids, so the browser alone would not move.
+  if (container) {
+    const scroller = container;
+    installAnchorJump(scroller, (el: HTMLElement) => scrollToBlock(scroller, el));
   }
 
   // Browser Back/Forward: Neovim announces the current document (\x04 ping) so

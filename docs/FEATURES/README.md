@@ -70,6 +70,8 @@ In detail in [`PREVIEW.md`](PREVIEW.md).
 - **Link hover preview** — an image, the start of a text file, a parsed URL, an
   anchor's section, or "not found". The counterpart to markdown.nvim's
   in-editor hover.
+- **Anchor jump** — a click on an in-page link (`[Setup](#setup)`, a table of
+  contents) scrolls the preview to that heading.
 - **Standalone preview** — runs without (or beyond) the Neovim instance, and
   can be started from a terminal.
 - **In-editor preview tab** — `:MDView preview-tab`, with no relay and no

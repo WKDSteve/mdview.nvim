@@ -401,6 +401,14 @@ the normal push path. External links, in-page anchors, and absolute or
 protocol-relative paths are left to the browser untouched; modifier-clicks
 (open in new tab, etc.) are also left alone.
 
+**In-page anchors jump in the preview.** A click on `[Setup](#setup)` (a table
+of contents, say) scrolls the preview to that heading. The rendered headings
+carry no `id`s, so the browser alone would not move; the anchor is resolved by
+GitHub slug the same way the hover popup resolves it (`#setup-1` is the second
+"Setup"). An anchor that names a real element `id` (footnotes) stays with the
+browser. Always on, independent of `click_navigate`; the URL hash is not
+changed. Module: `src/client/render/anchorJump.ts`.
+
 - **Module:** `src/client/render/clickNav.ts`, `native/server/internal/relay/nav.go`
 - **Config:** `experimental.click_navigate` (default `true` — the one `experimental.*` flag on by default)
 
