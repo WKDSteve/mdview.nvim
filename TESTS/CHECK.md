@@ -177,8 +177,10 @@ The relay -> tab half of points 1 and 3 to 6 and point 8 (marked in the sent
 color, survives a re-render, a changed or empty state, a new color, replay to a
 reloaded tab, the cap and its web-log line) runs automatically in
 `TESTS/browser/spotlight_mirror.e2e.mjs` (tier 3, POST /spotlight instead of
-spotlight.nvim). What stays manual: the real spotlight.nvim commands, the
-feel of the latency, point 7 and point 9.
+spotlight.nvim). Point 7 is covered in two halves: `:MDView spotlight off`
+sends an empty state (`TESTS/nvim/spotlight_sync_spec.lua`), and an empty state
+clears the tab (the e2e script). What stays manual: the real spotlight.nvim
+commands, the feel of the latency and point 9.
 
 1. `:MDView start`, then put the cursor on the token and run `:Spotlight toggle`
    → every occurrence is marked in the browser within about a second, in the
