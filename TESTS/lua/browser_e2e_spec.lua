@@ -33,6 +33,19 @@ describe("browser e2e (tier 3)", function()
     assert(code == 0, out)
   end)
 
+  it("@spawn @network band corner cases: wrapped line, column, code line, blank line", function()
+    if vim.fn.executable("node") ~= 1 then
+      print("n/a  node is not installed")
+      return
+    end
+    local code, out = run("cursor_band_cases.e2e.mjs")
+    if code == SKIP then
+      print("n/a  " .. out:gsub("%s+$", ""))
+      return
+    end
+    assert(code == 0, out)
+  end)
+
   it("@spawn @network a click on a TOC link jumps to the heading, the hover popup stays", function()
     if vim.fn.executable("node") ~= 1 then
       print("n/a  node is not installed")
