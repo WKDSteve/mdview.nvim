@@ -44,9 +44,12 @@ export function installAnchorJump(root: HTMLElement, jump: (el: HTMLElement) => 
     } catch {
       fragment = href.slice(1);
     }
-    // An element that really carries this id (footnotes) is the browser's
-    // job; it scrolls there by itself.
-    if (document.getElementById(fragment)) return;
+    // An element of the document that really carries this id (footnotes) is
+    // the browser's job; it scrolls there by itself. Only ids inside `root`
+    // count: the page chrome (#app, #mdview-overlays, ...) must not swallow a
+    // heading that happens to share the slug.
+    const byId = document.getElementById(fragment);
+    if (byId && root.contains(byId)) return;
 
     const target = resolveAnchor(headingAnchors(root), slugify(fragment));
     if (!target) return;

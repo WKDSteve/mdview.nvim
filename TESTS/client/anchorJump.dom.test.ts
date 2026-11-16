@@ -84,6 +84,19 @@ describe('installAnchorJump (real DOM)', () => {
     expect(jump).not.toHaveBeenCalled();
   });
 
+  it('still jumps when the id belongs to the page chrome, not the document', () => {
+    // #mdview-overlays, #app ...: ids outside the rendered content must not
+    // swallow a heading of the same slug.
+    const chrome = document.createElement('div');
+    chrome.id = 'overlays';
+    document.body.appendChild(chrome);
+    const { root, jump } = setup('<a href="#overlays">x</a><h2>Overlays</h2>');
+    const ev = click(root.querySelector('a')!);
+    expect(ev.defaultPrevented).toBe(true);
+    expect(jump.mock.calls[0][0]).toBe(root.querySelector('h2'));
+    chrome.remove();
+  });
+
   it('ignores non-anchor links and modifier clicks', () => {
     const { root, jump } = setup('<a href="./x.md">x</a><a href="#setup">s</a><h2>Setup</h2>');
     click(root.querySelector('a[href="./x.md"]')!);
