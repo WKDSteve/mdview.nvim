@@ -24,14 +24,24 @@ local original_notify = vim.notify
 local original_batch, original_idle = keycast.BATCH_MS, keycast.IDLE_MS
 
 -- What the stubbed ui.screenkey was asked, and what reached the stubbed relay.
-local subscriptions, sent, msgs
+local subscriptions, sent, msgs, controls
 
 --- A stand-in of ui.screenkey with subscribe(): each subscription records its
 --- scope, can be fed keys by the test and formats them as "a b c".
 local function install_screenkey()
   package.loaded["ui.screenkey"] = {
     subscribe = function(cb, opts)
-      local sub = { scope = opts and opts.scope, live = true, keys = {} }
+      local sub = { scope = opts and opts.scope, live = true, keys = {}, on_drop = opts and opts.on_drop }
+      function sub:active()
+        return self.live
+      end
+      -- what ui.screenkey does when the callback raised: remove, then tell
+      function sub:drop(err)
+        self.live = false
+        if self.on_drop then
+          self.on_drop(err)
+        end
+      end
       function sub:text()
         return table.concat(self.keys, " ")
       end
@@ -62,12 +72,13 @@ local function live()
 end
 
 before_each(function()
-  subscriptions, sent, msgs = {}, {}, {}
+  subscriptions, sent, msgs, controls = {}, {}, {}, {}
   install_screenkey()
   ws.send_keys = function(json)
     sent[#sent + 1] = vim.json.decode(json)
   end
-  control.send = function()
+  control.send = function(fields)
+    controls[#controls + 1] = fields
     return true
   end
   vim.notify = function(msg, level)
@@ -115,6 +126,21 @@ describe("keycast overlay switch", function()
 
     keycast.session_ended()
     assert.are.equal(0, #live(), "the session's teardown detaches it")
+  end)
+
+  it("a toggle whose capture cannot start leaves the overlay off and tells the tab nothing", function()
+    state.set_server({ stub = true })
+    keycast.session_started()
+    package.loaded["ui.screenkey"] = {
+      subscribe = function()
+        error("boom")
+      end,
+    }
+    overlay.run("keycast", "on")
+    assert.is_false(bcfg.defaults.overlays.keycast)
+    assert.is_false(keycast.is_active())
+    assert.are.same({}, controls, "no overlay-on reached the preview")
+    assert.truthy(msgs[#msgs].msg:find("ui.screenkey.subscribe failed:", 1, true), msgs[#msgs].msg)
   end)
 
   it("takes the configured scope, and warns about one it does not know", function()
@@ -221,7 +247,7 @@ describe("keycast batches", function()
     local function refusals()
       local n = 0
       for _, m in ipairs(msgs) do
-        if m.msg:find("keycast: the relay did not take the keys (404 page not found)", 1, true) then
+        if m.msg:find("keycast: this relay is older than the /keys route", 1, true) then
           n = n + 1
         end
       end
@@ -246,6 +272,46 @@ describe("keycast batches", function()
       return refusals() == 2
     end, 5)
     assert.are.equal(2, refusals())
+  end)
+
+  it("any other failure (relay restarting, 403) is not blamed on the relay's age, and says so once", function()
+    state.set_server({ stub = true })
+    ws.send_keys = function(json, cb)
+      sent[#sent + 1] = vim.json.decode(json)
+      cb(false, "curl: (7) Failed to connect to localhost port 43219")
+    end
+    local sub = live()[1]
+    sub:press("j")
+    vim.wait(500, function()
+      return #msgs > 0
+    end, 5)
+    sub:press("k")
+    vim.wait(500, function()
+      return #sent == 2
+    end, 5)
+    vim.wait(50)
+    assert.are.equal(1, #msgs)
+    assert.are.equal(
+      "[mdview] keycast: the relay did not take the keys (curl: (7) Failed to connect to localhost port 43219)",
+      msgs[1].msg
+    )
+    assert.is_nil(msgs[1].msg:find("older", 1, true))
+  end)
+
+  it("a subscription ui.screenkey dropped is forgotten, and the next sync subscribes again", function()
+    local sub = live()[1]
+    sub:drop("boom")
+    assert.is_false(keycast.is_active())
+    assert.is_true(keycast.sync())
+    assert.are.equal(1, #live())
+    assert.are_not.equal(sub, live()[1])
+  end)
+
+  it("an older ui.nvim without on_drop: an inactive handle counts as gone", function()
+    local sub = live()[1]
+    sub.on_drop = nil
+    sub:drop("boom")
+    assert.is_false(keycast.is_active())
   end)
 
   it("sends nothing without a running relay", function()

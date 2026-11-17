@@ -40,7 +40,7 @@
 ---@field cursor_paragraph boolean tint the top-level block the Neovim cursor is in (a paragraph up to the next blank line, or a whole list, table, code block, quote, heading or the frontmatter) in the preview, independent of cursor_marker; off by default, toggle with `:MDView paragraph`; color from the highlight group MdviewCursorParagraph (its background), else the preview theme's own tint; passed to the client as ?para=1 and pushed live; rides the scroll-sync ping, so needs scroll_sync on
 ---@field zoom number preview font-size zoom factor (1.0 = 100%, default); adjust at runtime with :MDView zoom, passed to the client as ?zoom= and pushed live
 ---@field overlays table<string, boolean> which preview overlays start enabled, e.g. { toc = false, keycast = false }; toggle at runtime with :MDView overlay, passed to the client as ?overlays= and pushed live
----@field keycast { scope: "normal"|"insert_protected"|"all" } the keycast overlay (overlays.keycast): which keys it shows -- "normal" (default) only keys typed outside Insert, Replace and Terminal mode; "insert_protected" Insert-mode text too, but never what is typed into a password prompt (inputsecret()/input(), buftype=prompt, a secret ui.kit prompt, ui.screenkey's hide lists); "all" every key. Needs ui.nvim (ui.screenkey.subscribe)
+---@field keycast { scope: "normal"|"insert_protected"|"all" } the keycast overlay (overlays.keycast): which keys it shows -- "normal" (default) only commands -- no Insert, Replace, Select, command-line or terminal text; "insert_protected" Insert-mode and command-line text too, but never what is typed into a password prompt (inputsecret()/input(), buftype=prompt, a secret ui.kit prompt, ui.screenkey's hide lists) or a :terminal; "all" every key. A password read with getchar() in a loop is shown in every scope (known limit). Needs ui.nvim (ui.screenkey.subscribe)
 ---@field selection_sync boolean mirror the Neovim visual selection (v / V / CTRL-V) into the preview as a highlight, live -- for showing a document to other people; off by default, switch it on for as long as you are presenting with `:MDView selection` (toggles), passed to the client as ?sel=1 and pushed live
 ---@field spotlight_sync boolean mirror the spotlight.nvim highlights (whole-file spotlights) into the preview, in the same colors and live -- needs spotlight.nvim, a no-op without it; independent of spotlight.nvim's own persistence. On by default; set false to never send them to the relay/browser, or switch it for a running session with `:MDView spotlight`
 ---@field spotlight_max_matches integer upper bound on the matches painted per spotlight in the preview (default 500), against a token that matches thousands of times in a large document; sent with the spotlight state
@@ -298,7 +298,7 @@ return {
       -- it stays off until switched on (`:MDView overlay keycast`).
       keycast = false,
     },
-    -- What the keycast overlay shows. "normal": no Insert-mode text at all.
+    -- What the keycast overlay shows. "normal": commands only, no typed text.
     keycast = {
       scope = "normal",
     },

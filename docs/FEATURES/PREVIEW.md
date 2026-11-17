@@ -383,16 +383,18 @@ preview, so the audience sees what is typed. `:MDView overlay keycast off` (or
 
 | `browser.keycast.scope` | Shows |
 | --- | --- |
-| `"normal"` (default) | only keys typed outside Insert, Replace and Terminal mode — commands, motions, the command line (`:w<CR>`). Text typed in Insert mode never leaves Neovim |
-| `"insert_protected"` | Insert-mode text too, but never a key typed into password-like input: while `inputsecret()` or `input()` waits, in a `buftype=prompt` buffer, in a secret `ui.kit` prompt, or in a buffer of ui.screenkey's `hide = { buftypes, filetypes }` lists (your own denylist). The key that submits such a prompt is hidden too; the keys right before and after it are shown |
-| `"all"` | every key, password prompts included — only for a preview nobody else sees |
+| `"normal"` (default) | only commands: keys typed in Normal, Visual and Operator-pending mode (motions, `dd`, `<C-w>l`). No text: nothing typed in Insert or Replace mode, on the command line (`:let $TOKEN=...`, `:!curl -u user:pw`, a `/` search — the `:` or `/` that opens it is shown, the rest is not; the command a mapping runs is typed there too), in Select mode or in a `:terminal` |
+| `"insert_protected"` | Insert-mode and command-line text too, but never a key typed into password-like input: while `inputsecret()` or `input()` waits, in a `buftype=prompt` buffer, in a secret `ui.kit` prompt, in a buffer of ui.screenkey's `hide = { buftypes, filetypes }` lists (your own denylist), or in a `:terminal` (a `sudo`, `ssh` or `gpg` password cannot be told from other text there). The key that submits such a prompt is hidden too; the keys right before and after it are shown |
+| `"all"` | every key, password prompts and the terminal included — only for a preview nobody else sees |
 
-Keys typed into a `:terminal` (a `sudo` password) cannot be told from other
-text: `"normal"` leaves Terminal mode out, with `"insert_protected"` add
-`hide = { buftypes = { "terminal" } }` to ui.screenkey's setup. Keys read
-with `getchar()` are not captured at all. The keys go to the loopback relay
-and the preview tabs only, never anywhere else, and the relay does not keep
-them: a tab opened or reloaded later shows nothing typed before.
+**Known limit, every scope:** a password a plugin reads key by key with
+`getchar()`/`getcharstr()` (a loop that opens no prompt) cannot be told from
+a command — Neovim marks nothing about such a read — so it is shown. Switch
+the overlay off (`:MDView overlay keycast off`) before typing a password into
+such a plugin. The keys go to the loopback relay and the preview tabs only,
+never anywhere else; curl gets them on its stdin, so they never land in a
+file, and the relay does not keep them: a tab opened or reloaded later shows
+nothing typed before.
 
 **Needs ui.nvim.** The capture, the key names and the protection are
 ui.nvim's (`ui.screenkey.subscribe`, the same capture as its `:UI screenkey`
@@ -403,7 +405,8 @@ says the overlay is unavailable and captures nothing.
 **Cost.** `vim.on_key` is attached only while the overlay is on *and* a
 session runs, and detached when either ends. Keys are sent in batches — at
 most one POST to `/keys` every 120 ms while typing, carrying the whole
-current line — never one request per keystroke.
+current line, one curl at a time (a newer line replaces one still waiting) —
+never one request per keystroke.
 
 - **Module:** `lua/mdview/core/keycast.lua`, `src/client/render/overlays/keycast.ts`
 - **Relay:** `POST /keys` (`native/server/main.go`, `handleKeys`), broadcast to every tab with the `\x08` prefix, not stored

@@ -18,7 +18,7 @@
 --- matching the client's fade.
 ---
 --- Privacy: off by default (`browser.overlays.keycast = false`), and the scope
---- `browser.keycast.scope` defaults to "normal" (no Insert-mode text at all).
+--- `browser.keycast.scope` defaults to "normal" (commands only, no typed text).
 --- See docs/FEATURES/PREVIEW.md#keycast-overlay.
 
 local notify = require("lib.nvim.notify").create("").notify
@@ -67,7 +67,16 @@ end
 ---Whether keys are being captured right now.
 ---@return boolean
 function M.is_active()
+  if sub and type(sub.active) == "function" and not sub:active() then
+    sub = nil
+  end
   return sub ~= nil
+end
+
+---Whether a session runs (between the autocmds' attach and teardown).
+---@return boolean
+function M.in_session()
+  return session
 end
 
 ---@internal
@@ -98,13 +107,31 @@ local function overlay_on()
   return type(overlays) == "table" and overlays.keycast == true
 end
 
---- Whether this session already said that the relay refused a batch.
-local refused_said = false
+--- The kinds of refused batches this session already reported (once each).
+---@type table<string, true>
+local said = {}
 
 ---@internal
---- Send the current line to every tab. Nothing without a running relay. A relay
---- that refuses it (one older than the /keys route answers 404) is reported once
---- per session, so an empty overlay is never a mystery.
+--- What a refused batch means, and how to say it. A relay older than the /keys
+--- route answers "404 page not found" (its file server); anything else -- a relay
+--- that is restarting (curl exit 7), a 403, a timeout -- is a passing failure and
+--- is not blamed on the relay's age.
+---@param err string|nil
+---@return string kind, string message
+local function refusal(err)
+  local detail = tostring(err or "?")
+  if detail:find("404 page not found", 1, true) then
+    return "old_relay",
+      "[mdview] keycast: this relay is older than the /keys route, the overlay stays empty. "
+        .. "Set dev.binary_path to a current build until the next release"
+  end
+  return "failed", ("[mdview] keycast: the relay did not take the keys (%s)"):format(detail)
+end
+
+---@internal
+--- Send the current line to every tab. Nothing without a running relay. A refused
+--- batch is reported once per kind and session, so an empty overlay is never a
+--- mystery and a run of failures is not a run of messages.
 ---@param text string
 ---@return nil
 local function send(text)
@@ -116,17 +143,16 @@ local function send(text)
     return
   end
   require("mdview.adapter.ws_client").send_keys(json, function(sent, err)
-    if sent or refused_said then
+    if sent then
       return
     end
-    refused_said = true
+    local kind, message = refusal(err)
+    if said[kind] then
+      return
+    end
+    said[kind] = true
     vim.schedule(function()
-      notify(
-        ("[mdview] keycast: the relay did not take the keys (%s) -- a relay older than the /keys route? "):format(
-          tostring(err)
-        ) .. "Set dev.binary_path to a current build until the next release",
-        vim.log.levels.WARN
-      )
+      notify(message, vim.log.levels.WARN)
     end)
   end)
 end
@@ -183,7 +209,17 @@ end
 local function start()
   local mod, reason = screenkey()
   if mod then
-    local ok, got = pcall(mod.subscribe, on_key, { scope = scope() })
+    local ok, got = pcall(mod.subscribe, on_key, {
+      scope = scope(),
+      -- ui.screenkey removed us because on_key raised: forget the handle, so
+      -- is_active() tells the truth and the next sync() subscribes again.
+      on_drop = function()
+        if sub then
+          sub = nil
+          pending = false
+        end
+      end,
+    })
     if ok and type(got) == "table" then
       sub = got
       return true
@@ -209,6 +245,9 @@ end
 ---session runs. Called by `:MDView overlay keycast` and by the session's attach.
 ---@return boolean active
 function M.sync()
+  if sub and type(sub.active) == "function" and not sub:active() then
+    sub = nil -- dropped behind our back (an older ui.nvim without on_drop)
+  end
   local want = session and overlay_on()
   if want and not sub then
     start()
@@ -222,7 +261,7 @@ end
 ---@return nil
 function M.session_started()
   session = true
-  refused_said = false
+  said = {}
   M.sync()
 end
 

@@ -105,7 +105,13 @@ function M.run(name, action)
   end
   states[name] = on
   if name == "keycast" then
-    require("mdview.core.keycast").sync()
+    local keycast = require("mdview.core.keycast")
+    -- During a session "on" means capturing; when the capture could not start
+    -- (keycast said why), the overlay stays off and the tab is not told "on".
+    if not keycast.sync() and on and keycast.in_session() then
+      states[name] = false
+      return
+    end
   end
 
   if state.get_server() and control.send({ overlay = { name = name, on = on } }) then
