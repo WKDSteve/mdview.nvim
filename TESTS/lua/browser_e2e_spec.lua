@@ -84,4 +84,17 @@ describe("browser e2e (tier 3)", function()
     end
     assert(code == 0, out)
   end)
+
+  it("@spawn @network a generated view renders as Markdown, follows its renderer, reports a click", function()
+    if vim.fn.executable("node") ~= 1 then
+      print("n/a  node is not installed")
+      return
+    end
+    local code, out = run("generated_view.e2e.mjs")
+    if code == SKIP then
+      print("n/a  " .. out:gsub("%s+$", ""))
+      return
+    end
+    assert(code == 0, out)
+  end)
 end)
