@@ -115,6 +115,11 @@ add({
     and select(1, require("mdview.adapter.log").file_log_state()) == true]],
   note = ":MDView file-log on <path> turns it on with that path",
 })
+add({ lua = [[require("mdview.adapter.log").append("relay: sheet line")]], note = "the relay prints a line" })
+add({
+  expect = [[_G.file(_G.fixture .. "/relay.log"):find("relay: sheet line", 1, true) ~= nil]],
+  note = "the line is in the log file",
+})
 cmd("file-log status", [[_G.said("file logging ON -> ", "INFO")]], "reports it on, without changing it")
 cmd(
   "file-log toggle",
@@ -131,6 +136,11 @@ cmd(
   [[_G.said("file logging OFF (path: ", "INFO") and select(1, require("mdview.adapter.log").file_log_state()) == false]],
   "turns it off"
 )
+add({ lua = [[require("mdview.adapter.log").append("relay: after off")]], note = "the relay prints another line" })
+add({
+  expect = [[_G.file(_G.fixture .. "/relay.log"):find("relay: after off", 1, true) == nil]],
+  note = "off: the line stays out of the file",
+})
 
 cmd(
   "lang",

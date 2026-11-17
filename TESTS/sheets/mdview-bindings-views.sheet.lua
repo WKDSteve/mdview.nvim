@@ -65,13 +65,14 @@ add({
     require("mdview.adapter.log").append("[client] sheet: page rendered")]],
   note = "two lines of relay stdout",
 })
-cmd(
-  "weblogs",
-  [[vim.api.nvim_buf_get_name(0) == "mdview://logs"
+-- The log buffer is shown from a vim.schedule callback: wait for it.
+add({ keys = ":MDView weblogs<CR>", note = ":MDView weblogs: shows the relay log" })
+add({
+  wait = [[vim.api.nvim_buf_get_name(0) == "mdview://logs"
     and vim.deep_equal(vim.api.nvim_buf_get_lines(0, -3, -1, false),
       { "relay: listening on 127.0.0.1:43219", "[client] sheet: page rendered" })]],
-  "shows the relay's captured stdout with the [client] line"
-)
+  note = ":MDView weblogs shows the relay's captured stdout with the [client] line",
+})
 add({ keys = ":buffer #<CR>", note = "back to the document" })
 add({ expect = [[vim.api.nvim_buf_get_name(0):find("doc.md", 1, true) ~= nil]], note = "the document is current again" })
 
