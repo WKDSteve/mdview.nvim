@@ -73,6 +73,8 @@ return {
       -- browser_args_spec and server_args_spec make a fake executable with `chmod +x` (Unix only),
       -- which is how the specs create the "browser/server binary found on disk" fixture.
       "chmod",
+      -- TESTS/nvim/sheets_spec.lua runs each test sheet in a child editor (testing.sheet).
+      "nvim",
     },
   },
   -- gated: a failed conformance check makes `scripts/test.sh conformance` exit 1 (docs/CONFORMANCE.md of testing.nvim)

@@ -39,6 +39,18 @@ and a chromium of its own, about 3 s idle and up to 10 s under load, so
 `.testing.lua` raises `timeouts.case_ms` to 30 s (testing.nvim has no
 per-case timeout).
 
+`sheets_spec.lua` runs every `TESTS/sheets/*.sheet.lua` (test sheets,
+[testing.nvim docs/SHEETS.md](https://github.com/WKDSteve/testing.nvim/blob/main/docs/SHEETS.md))
+in a child Neovim with a UI attached, one case `sheet:<id>` each.
+`mdview-bindings-commands` and `mdview-bindings-views` are the mdview.nvim
+items of the nvim config's bindings checklist: with the setup of that config
+(`_bindings.lua`: the same `mdview.setup`, `vim.notify` recorded, the relay
+transport `mdview.adapter.ws_client` recorded, a stand-in session state, the
+browser a recording stand-in on the `PATH`) every `:MDView` subcommand that
+does not need a running relay is typed and what it said, opened, wrote or sent
+is read back. `:MDView start`, `standalone` and what the page shows stay
+`manual` lines of the sheets.
+
 The state guard is strict (`state = "error"` in `.testing.lua`): a case that
 leaves a buffer, window, tab page, autocmd, keymap or user command behind
 fails. A spec that opens buffers or windows registers
