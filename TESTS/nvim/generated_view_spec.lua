@@ -277,6 +277,49 @@ describe("generated view: pushes", function()
     pcall(vim.api.nvim_buf_delete, doc, { force = true })
   end)
 
+  it("a refresh while someone types in a file loses none of the file's edits", function()
+    -- One room per document, so the view in the background may update its own.
+    config.defaults.browser.behavior = "new_tab"
+    config.defaults.live_push_throttle_ms = 80
+    local doc = vim.api.nvim_create_buf(true, false)
+    vim.api.nvim_buf_set_name(doc, "mdview_generated_spec_typing.md")
+    vim.api.nvim_set_option_value("filetype", "markdown", { buf = doc })
+    vim.api.nvim_set_current_buf(doc)
+    local room = require("mdview.helper.normalize").path(vim.api.nvim_buf_get_name(doc))
+
+    vim.api.nvim_buf_set_lines(doc, 0, -1, false, { "first" })
+    vim.api.nvim_exec_autocmds("TextChanged", { buffer = doc }) -- leading push
+    vim.api.nvim_buf_set_lines(doc, 0, -1, false, { "first", "second" })
+    vim.api.nvim_exec_autocmds("TextChanged", { buffer = doc }) -- trailing push due
+    assert.is_true(mdview.refresh(buf)) -- the owner refreshes inside the same window
+
+    assert.is_true(
+      settle(function()
+        local last
+        for _, s in ipairs(sent) do
+          if s.target == room then
+            last = s
+          end
+        end
+        return last ~= nil and #last.lines == 2
+      end),
+      "the file's last edit reached its room"
+    )
+    local view_pushes = vim.tbl_filter(function(s)
+      return s.target == NAME
+    end, sent)
+    assert.are.equal(1, #view_pushes, "and the view was pushed too")
+    pcall(vim.api.nvim_buf_delete, doc, { force = true })
+  end)
+
+  it("re-registering under another name clears the old room", function()
+    live.push_buffer_changes(buf, { full = true })
+    assert.are.equal(NAME, live.shown_document(NAME))
+    assert.is_true(generated.register(buf, { name = "caselog://case-1/other.log.md", render = render }))
+    assert.is_nil(live.shown_document(NAME))
+    assert.is_nil(generated.by_name(NAME))
+  end)
+
   it("line-for-line features leave the view alone", function()
     live.push_buffer_changes(buf, { full = true })
     require("mdview.bindings.autocmds.scroll_sync").send_current_position(buf)

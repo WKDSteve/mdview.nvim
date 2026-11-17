@@ -46,6 +46,8 @@ local M = {}
 ---@field on_click? fun(target: string, ctx: MDView.Generated.ClickContext)
 ---@field group integer # augroup of the view's buffer-local autocmds
 ---@field failed string|nil # last render error that was reported (reported once until a render succeeds)
+---@field throttle Lib.Patterns.Throttle.Handle|nil # the view's own push throttle (see `throttled_push`)
+---@field throttle_ms integer|nil # the window `throttle` was built with
 
 ---@type table<integer, MDView.Generated.View>
 M._views = {}
@@ -224,6 +226,34 @@ local function push_now(bufnr, opts)
   end)
 end
 
+--- Push the view through a throttle of its own: at once, or as the one trailing
+--- push of the window (`live_push_throttle_ms`), like a text change of a file.
+---
+--- Its own, not live_push's: that one throttle keeps only the *latest* argument
+--- for its trailing push, so a refresh of a view landing in the window of a
+--- person typing in a file would replace the file's last edit, which then never
+--- reaches the preview.
+---@internal
+---@param bufnr integer
+---@return nil
+local function throttled_push(bufnr)
+  local view = M._views[bufnr]
+  if not view or not require("mdview.core.state").is_attached() then
+    return
+  end
+  local ms = require("mdview.config").defaults.live_push_throttle_ms or 150
+  if not view.throttle or view.throttle_ms ~= ms then
+    if view.throttle then
+      view.throttle.cancel()
+    end
+    view.throttle = require("lib.nvim.patterns.throttle").new(function(b)
+      push_now(b)
+    end, ms)
+    view.throttle_ms = ms
+  end
+  view.throttle.call(bufnr)
+end
+
 --- Clear what the session keeps for the view's room: the tab that still shows it
 --- learns it is gone (a short notice instead of a stale page), and the room's
 --- bookkeeping is dropped.
@@ -252,8 +282,6 @@ local function clear_room(name)
   if pin.get() == name then
     pin.clear()
   end
-  -- A throttled push still pending for the buffer finds it no longer
-  -- previewable (no view, and `nofile`) and does nothing.
 end
 
 --- End the view of `bufnr`: forget the callbacks, drop its autocmds and clear its
@@ -267,6 +295,9 @@ function M.unregister(bufnr)
   end
   local name = M.name(bufnr)
   M._views[bufnr] = nil
+  if view.throttle then
+    view.throttle.cancel()
+  end
   pcall(api.nvim_del_augroup_by_id, view.group)
   if name then
     clear_room(name)
@@ -308,6 +339,8 @@ function M.register(bufnr, spec)
       ("name %s must end in .md, .markdown or .mdx: the browser renders a document by its extension"):format(wanted)
   end
 
+  local old = M._views[bufnr]
+  local old_name = old and M.name(bufnr) or nil
   if spec.name and spec.name ~= api.nvim_buf_get_name(bufnr) then
     local other = M.by_name(spec.name)
     if other and other ~= bufnr then
@@ -322,9 +355,19 @@ function M.register(bufnr, spec)
     return false, 'the buffer has no name; pass `name` (e.g. "myplugin://view.md")'
   end
 
-  local old = M._views[bufnr]
+  -- Re-registered under another name: the old room shows a view that is gone.
+  if old_name and old_name ~= M.name(bufnr) then
+    clear_room(old_name)
+  end
   local group = old and old.group or api.nvim_create_augroup("mdview.generated." .. bufnr, { clear = true })
-  M._views[bufnr] = { render = spec.render, on_click = spec.on_click, group = group, failed = nil }
+  M._views[bufnr] = {
+    render = spec.render,
+    on_click = spec.on_click,
+    group = group,
+    failed = nil,
+    throttle = old and old.throttle,
+    throttle_ms = old and old.throttle_ms,
+  }
   if old then
     return true
   end
@@ -334,7 +377,7 @@ function M.register(bufnr, spec)
   -- live as long as one view, under a group named after its buffer.
   local autocmd = require("lib.nvim.bindings.autocmd")
   autocmd.create({ "TextChanged", "TextChangedI" }, function(args)
-    require("mdview.bindings.autocmds.live_push").request_push(args.buf)
+    throttled_push(args.buf)
   end, {
     group = group,
     buffer = bufnr,
@@ -371,7 +414,7 @@ function M.refresh(bufnr)
   if not M.is(bufnr) or not require("mdview.core.state").is_attached() then
     return false
   end
-  require("mdview.bindings.autocmds.live_push").request_push(bufnr)
+  throttled_push(bufnr)
   return true
 end
 

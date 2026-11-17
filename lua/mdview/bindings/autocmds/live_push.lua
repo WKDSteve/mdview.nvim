@@ -90,23 +90,6 @@ local function cancel_pending()
 end
 M._cancel_pending = cancel_pending -- exposed for teardown (bindings/autocmds/init.lua) and tests
 
---- The throttled push of a text change (set up by `M.attach`): nil while no
---- session is attached.
----@type fun(bufnr: integer)|nil
-local request = nil
-
---- Push `bufnr` through the same throttle a text change goes through: at once,
---- or as the one trailing push of the window. A no-op while no session is
---- attached. Used by generated views (core/generated), whose buffer-local
---- autocmds and `refresh` are not covered by the `ft_pattern` autocmds below.
----@param bufnr integer
----@return nil
-function M.request_push(bufnr)
-  if request and require("mdview.core.state").is_attached() then
-    request(bufnr)
-  end
-end
-
 -- Send the current content of bufnr to the relay for `bufnr`'s room and store a
 -- session snapshot for bookkeeping. Routing (per-path vs the preview key) and
 -- full-vs-diff (when experimental.line_diff is on) are decided here / in
@@ -242,9 +225,6 @@ function M.attach(group)
 
   local function on_text_changed(args)
     throttle_for_config().call(args.buf)
-  end
-  request = function(bufnr)
-    throttle_for_config().call(bufnr)
   end
 
   local opts_a = {
