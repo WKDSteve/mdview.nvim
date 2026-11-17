@@ -133,6 +133,21 @@ local function resolve_browser_url(opts)
     url = url .. "&sel=1"
   end
 
+  -- preview overlays (client reads ?overlays=a,b); only the ones that are on,
+  -- sorted, so a tab opened after `:MDView overlay <name> on` starts with it.
+  if type(browser_defaults.overlays) == "table" then
+    local on = {}
+    for name, enabled in pairs(browser_defaults.overlays) do
+      if enabled == true and type(name) == "string" and name:match("^[%w_-]+$") then
+        on[#on + 1] = name
+      end
+    end
+    if #on > 0 then
+      table.sort(on)
+      url = url .. "&overlays=" .. vim.uri_encode(table.concat(on, ","))
+    end
+  end
+
   -- show-all-blank-lines mode (client reads ?blanklines=1); only pass when on
   -- so a freshly reopened tab starts at what :MDView blanklines last set.
   if browser_defaults.preserve_blank_lines == true then

@@ -227,6 +227,24 @@ describe("launcher.resolve_browser_url", function()
     end)
   end)
 
+  it("overlays adds the ones that are on, sorted, and nothing when all are off", function()
+    with_clean_state(function()
+      bcfg.defaults.open_url = nil
+      state.set_token("t")
+      bcfg.defaults.overlays = { toc = false, keycast = false }
+      assert.is_nil(query_of(launcher.resolve_browser_url({ key = "k" })).overlays)
+
+      -- `:MDView overlay toc on` without a session: the next tab must start with it (BUG, fixed:
+      -- the URL never carried ?overlays=, so the choice was lost until the next live toggle)
+      bcfg.defaults.overlays = { toc = true, keycast = false }
+      assert.are.equal("toc", query_of(launcher.resolve_browser_url({ key = "k" })).overlays)
+
+      bcfg.defaults.overlays = { toc = true, keycast = true, ["bad name&x=1"] = true }
+      local raw = query_of(launcher.resolve_browser_url({ key = "k" })).overlays
+      assert.are.equal("keycast,toc", vim.uri_decode(raw))
+    end)
+  end)
+
   it("webtransport adds transport= and, if present, the printed cert hash", function()
     with_clean_state(function()
       bcfg.defaults.open_url = nil
