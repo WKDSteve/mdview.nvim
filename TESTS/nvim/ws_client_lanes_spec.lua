@@ -36,6 +36,7 @@ local A = "C:/spec/lanes/a.md"
 local B = "C:/spec/lanes/b.md"
 
 local orig_jobstart, orig_executable = vim.fn.jobstart, vim.fn.executable
+local orig_chansend, orig_chanclose = vim.fn.chansend, vim.fn.chanclose
 local orig_stall = ws.LANE_STALL_MS
 --- Curls started so far: { url, body, opts, exited }.
 local started
@@ -47,7 +48,7 @@ local function url_and_body(cmd)
   for i, part in ipairs(cmd) do
     if type(part) == "string" and part:match("^http://") then
       url = part
-    elseif part == "--data-binary" then
+    elseif part == "--data-binary" and cmd[i + 1] ~= "@-" then
       local f = io.open(cmd[i + 1]:sub(2), "rb")
       if f then
         body = f:read("*a")
@@ -95,8 +96,18 @@ local function stub_curl()
   end
   vim.fn.jobstart = function(cmd, opts)
     local url, body = url_and_body(cmd)
-    started[#started + 1] = { url = url, body = body, opts = opts, exited = false }
+    started[#started + 1] = { url = url, body = body, opts = opts, exited = false, cmd = cmd }
     return #started
+  end
+  -- A body sent over stdin (`--data-binary @-`): chansend writes it, chanclose ends it.
+  vim.fn.chansend = function(id, data)
+    local job = started[id]
+    job.body = job.body .. data
+    return #data
+  end
+  vim.fn.chanclose = function(id, stream)
+    started[id].closed = stream
+    return 1
   end
 end
 
@@ -106,6 +117,7 @@ local function unstub_curl()
   ws.LANE_STALL_MS = orig_stall
   config.defaults.experimental.line_diff = false
   vim.fn.jobstart, vim.fn.executable = orig_jobstart, orig_executable
+  vim.fn.chansend, vim.fn.chanclose = orig_chansend, orig_chanclose
 end
 
 describe("ws_client content lane", function()
@@ -293,5 +305,52 @@ describe("ws_client spans, doc and scroll lanes", function()
     ws.send_scroll(A, 1, 10)
     ws.send_content(A, { "text" })
     assert.are.equal(4, #started)
+  end)
+end)
+
+describe("ws_client keys lane (keycast)", function()
+  before_each(stub_curl)
+  after_each(unstub_curl)
+
+  it("a held key costs one curl at a time: the one in flight, then only the newest line", function()
+    ws.send_keys('{"text":"j"}')
+    ws.send_keys('{"text":"j x2"}')
+    ws.send_keys('{"text":"j x3"}')
+    assert.are.equal(1, #started, "a second curl must wait for the first")
+    finish(1)
+    assert.are.same({ '{"text":"j"}', '{"text":"j x3"}' }, bodies("keys"))
+    finish(2)
+    assert.are.equal(2, #started, "nothing left to send")
+  end)
+
+  it("the typed keys go through curl's stdin, never into a temp file, with a time limit", function()
+    ws.send_keys('{"text":":w<CR>"}')
+    local cmd = started[1].cmd
+    local joined = table.concat(cmd, " ")
+    assert.truthy(joined:find("--data-binary @- ", 1, true), joined)
+    assert.is_nil(joined:find("@[A-Za-z]:") or joined:find("@/"), "no @<file> argument: " .. joined)
+    assert.truthy(joined:find("--max-time " .. ws.KEYS_MAX_TIME_S, 1, true), joined)
+    assert.are.equal('{"text":":w<CR>"}', started[1].body)
+    assert.are.equal("stdin", started[1].closed)
+  end)
+
+  it("reports the outcome of a batch: ok, or the relay's answer", function()
+    local got = {}
+    ws.send_keys('{"text":"a"}', function(ok, err)
+      got[#got + 1] = { ok, err }
+    end)
+    finish(1)
+    ws.send_keys('{"text":"b"}', function(ok, err)
+      got[#got + 1] = { ok, err }
+    end)
+    started[2].opts.on_stdout(2, { "404 page not found", "" }, "stdout")
+    finish(2)
+    assert.are.same({ { true, nil }, { false, "404 page not found" } }, got)
+  end)
+
+  it("keys do not wait on the content of a room", function()
+    ws.send_content(A, { "text" })
+    ws.send_keys('{"text":"j"}')
+    assert.are.equal(2, #started)
   end)
 end)

@@ -274,25 +274,34 @@ end
 ---@param url URL # target URL for the POST request
 ---@param body string # request body content
 ---@param cb fun(exit_code: integer, stdout_lines: string[]|nil, stderr_lines: string[]|nil)? # optional callback invoked on completion
+---@param opts? { stdin?: boolean, max_time?: integer } # stdin: hand the body to curl on its stdin instead of a temp file (nothing of it touches the disk); max_time: curl's --max-time in seconds
 ---@return integer|nil # job ID if curl was started, nil when it was not (cb has been called already)
-local function http_post_nonblocking(url, body, cb)
+local function http_post_nonblocking(url, body, cb, opts)
   cb = cb or function() end
+  opts = opts or {}
   if fn.executable("curl") ~= 1 then
     cb(127, nil, { CURL_MISSING })
     return nil
   end
 
-  local tmpf = fn.tempname()
-  local f = io.open(tmpf, "wb")
-  if f then
-    f:write(body)
-    f:close()
+  local tmpf = nil
+  if not opts.stdin then
+    tmpf = fn.tempname()
+    local f = io.open(tmpf, "wb")
+    if f then
+      f:write(body)
+      f:close()
+    end
   end
 
   local stdout_acc = {}
   local stderr_acc = {}
 
-  local args = { "-sS", "-X", "POST", url, "--data-binary", "@" .. tmpf, "-H", "Content-Type: text/markdown" }
+  local args = { "-sS", "-X", "POST", url, "--data-binary", tmpf and ("@" .. tmpf) or "@-" }
+  if opts.max_time then
+    vim.list_extend(args, { "--max-time", tostring(opts.max_time) })
+  end
+  vim.list_extend(args, { "-H", "Content-Type: text/markdown" })
   local ok_start, jid = pcall(fn.jobstart, vim.list_extend({ "curl" }, args), {
     stdout_buffered = true,
     stderr_buffered = true,
@@ -315,18 +324,25 @@ local function http_post_nonblocking(url, body, cb)
       end
     end,
     on_exit = function(_, code, _)
-      pcall(function()
-        os.remove(tmpf)
-      end)
+      if tmpf then
+        pcall(os.remove, tmpf)
+      end
       -- pass collected stdout/stderr to callback
       cb(code, (#stdout_acc > 0) and stdout_acc or nil, (#stderr_acc > 0) and stderr_acc or nil)
     end,
   })
   if not ok_start or type(jid) ~= "number" or jid <= 0 then
-    pcall(os.remove, tmpf)
+    if tmpf then
+      pcall(os.remove, tmpf)
+    end
     local reason = ok_start and ("jobstart returned " .. tostring(jid)) or tostring(jid)
     cb(JOBSTART_FAILED, nil, { "could not start curl: " .. reason })
     return nil
+  end
+  if opts.stdin then
+    -- The body goes through the pipe; closing stdin is curl's end of input.
+    pcall(fn.chansend, jid, body)
+    pcall(fn.chanclose, jid, "stdin")
   end
   return jid
 end
@@ -354,6 +370,8 @@ M.LANE_STALL_MS = M.LANE_STALL_MS or 5000
 ---@field supersedes boolean|nil # a full state: every entry queued before it is dropped
 ---@field merge_key string|nil # a queued entry with the same merge_key is dropped in favour of this one
 ---@field on_drop fun()|nil # called when the entry is dropped without being sent
+---@field stdin boolean|nil # the body goes to curl's stdin, never into a temp file
+---@field max_time integer|nil # curl --max-time, in seconds
 
 ---@class mdview.ws_client.Lane
 ---@field busy boolean
@@ -399,7 +417,7 @@ local function lane_pump(name)
     if not ok then
       error(err, 0)
     end
-  end)
+  end, { stdin = entry.stdin, max_time = entry.max_time })
   if lane.token == token then
     vim.defer_fn(release, M.LANE_STALL_MS)
   end
@@ -428,7 +446,7 @@ local function lane_post(name, entry)
   lane_pump(name)
 end
 
----@param channel "content"|"control"|"spans"|"doc"|"scroll"
+---@param channel "content"|"control"|"spans"|"doc"|"scroll"|"keys"
 ---@param key string
 ---@return string
 local function lane_name(channel, key)
@@ -810,9 +828,17 @@ function M.send_spotlight(json, cb)
   end)
 end
 
+-- How long one keycast POST may take before curl gives up (the relay is local).
+M.KEYS_MAX_TIME_S = 2
+
 -- Public: send a keycast batch (JSON, e.g. {"text":":w<CR>"}) to every tab
--- (/keys, no room key: the keys are the editor's). Fire-and-forget like
--- /spotlight; mdview.core.keycast batches, so this is never one POST per key.
+-- (/keys, no room key: the keys are the editor's). It goes through a lane of its
+-- own: at most one curl in flight, and a newer batch replaces the one waiting
+-- (each carries the whole line), so a held key costs one curl at a time, never
+-- a pile of them, and an older line never overtakes a newer one. The body goes
+-- to curl's stdin, so the typed keys never land in a temp file, and curl gives
+-- up after KEYS_MAX_TIME_S. cb(ok, err) reports the outcome of a batch that was
+-- sent (a replaced one gets no answer); err is the relay's answer or curl's.
 ---@param json string
 ---@param cb? fun(ok: boolean, err: string|nil)
 ---@return nil
@@ -825,14 +851,21 @@ function M.send_keys(json, cb)
   local port = vim.g.mdview_server_port or DEFAULT_PORT
   local token = require("mdview.core.state").get_token() or ""
   local url = string.format("http://localhost:%d/keys?token=%s", port, vim.uri_encode(token))
-  http_post_nonblocking(url, json, function(code, stdout_lines, stderr_lines)
-    if code == 0 and not stdout_lines then
-      cb(true, nil)
-      return
-    end
-    local detail = table.concat(stdout_lines or stderr_lines or { "curl exit " .. tostring(code) }, " "):sub(1, 200)
-    cb(false, detail)
-  end)
+  lane_post("keys", {
+    url = url,
+    body = json,
+    supersedes = true,
+    stdin = true,
+    max_time = M.KEYS_MAX_TIME_S,
+    cb = function(code, stdout_lines, stderr_lines)
+      if code == 0 and not stdout_lines then
+        cb(true, nil)
+        return
+      end
+      local detail = table.concat(stdout_lines or stderr_lines or { "curl exit " .. tostring(code) }, " "):sub(1, 200)
+      cb(false, detail)
+    end,
+  })
 end
 
 -- Public: ask every connected preview tab to close itself (the relay
