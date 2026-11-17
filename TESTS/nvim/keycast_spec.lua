@@ -211,6 +211,43 @@ describe("keycast batches", function()
     assert.are.same({}, sub.keys)
   end)
 
+  it("a relay that refuses the keys (one older than /keys) is reported once per session", function()
+    state.set_server({ stub = true })
+    ws.send_keys = function(json, cb)
+      sent[#sent + 1] = vim.json.decode(json)
+      cb(false, "404 page not found")
+    end
+    local sub = live()[1]
+    local function refusals()
+      local n = 0
+      for _, m in ipairs(msgs) do
+        if m.msg:find("keycast: the relay did not take the keys (404 page not found)", 1, true) then
+          n = n + 1
+        end
+      end
+      return n
+    end
+    sub:press("j")
+    vim.wait(500, function()
+      return refusals() == 1
+    end, 5)
+    sub:press("k")
+    vim.wait(500, function()
+      return #sent == 2
+    end, 5)
+    vim.wait(50)
+    assert.are.equal(1, refusals(), "said once, not per batch")
+    assert.are.equal(vim.log.levels.WARN, msgs[#msgs].level)
+
+    keycast.session_ended()
+    keycast.session_started() -- a new session says it again
+    live()[1]:press("l")
+    vim.wait(500, function()
+      return refusals() == 2
+    end, 5)
+    assert.are.equal(2, refusals())
+  end)
+
   it("sends nothing without a running relay", function()
     local sub = live()[1]
     sub:press("j")

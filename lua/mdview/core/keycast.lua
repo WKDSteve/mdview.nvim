@@ -98,8 +98,13 @@ local function overlay_on()
   return type(overlays) == "table" and overlays.keycast == true
 end
 
+--- Whether this session already said that the relay refused a batch.
+local refused_said = false
+
 ---@internal
---- Send the current line to every tab. Nothing without a running relay.
+--- Send the current line to every tab. Nothing without a running relay. A relay
+--- that refuses it (one older than the /keys route answers 404) is reported once
+--- per session, so an empty overlay is never a mystery.
 ---@param text string
 ---@return nil
 local function send(text)
@@ -107,9 +112,23 @@ local function send(text)
     return
   end
   local ok, json = pcall(vim.json.encode, { text = text })
-  if ok then
-    require("mdview.adapter.ws_client").send_keys(json)
+  if not ok then
+    return
   end
+  require("mdview.adapter.ws_client").send_keys(json, function(sent, err)
+    if sent or refused_said then
+      return
+    end
+    refused_said = true
+    vim.schedule(function()
+      notify(
+        ("[mdview] keycast: the relay did not take the keys (%s) -- a relay older than the /keys route? "):format(
+          tostring(err)
+        ) .. "Set dev.binary_path to a current build until the next release",
+        vim.log.levels.WARN
+      )
+    end)
+  end)
 end
 
 ---@internal
@@ -203,6 +222,7 @@ end
 ---@return nil
 function M.session_started()
   session = true
+  refused_said = false
   M.sync()
 end
 
