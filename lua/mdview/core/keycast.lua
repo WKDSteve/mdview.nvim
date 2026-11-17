@@ -157,14 +157,22 @@ local function on_key(_, s)
 end
 
 ---@internal
+--- Subscribe to ui.screenkey. When that is not possible (no ui.nvim, an old one, or
+--- subscribe() raises), say so -- the overlay may be on from setup() -- and capture
+--- nothing; the session goes on either way.
 ---@return boolean started
 local function start()
-  local mod = screenkey()
-  if not mod then
-    return false
+  local mod, reason = screenkey()
+  if mod then
+    local ok, got = pcall(mod.subscribe, on_key, { scope = scope() })
+    if ok and type(got) == "table" then
+      sub = got
+      return true
+    end
+    reason = ("ui.screenkey.subscribe failed: %s"):format(tostring(got))
   end
-  sub = mod.subscribe(on_key, { scope = scope() })
-  return true
+  notify(("[mdview] overlay keycast is unavailable: %s"):format(reason or "?"), vim.log.levels.WARN)
+  return false
 end
 
 ---@internal

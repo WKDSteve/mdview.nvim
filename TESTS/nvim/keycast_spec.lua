@@ -153,6 +153,27 @@ describe("keycast overlay switch", function()
     assert.is_false(ok)
     assert.are.equal("ui.nvim is not installed", reason)
   end)
+
+  it("on from setup() without ui.nvim: the session starts, says why nothing is captured", function()
+    package.loaded["ui.screenkey"] = {}
+    bcfg.defaults.overlays.keycast = true
+    keycast.session_started()
+    assert.is_false(keycast.is_active())
+    assert.truthy(msgs[#msgs].msg:find("overlay keycast is unavailable: this ui.nvim has no", 1, true), msgs[#msgs].msg)
+    assert.are.equal(vim.log.levels.WARN, msgs[#msgs].level)
+  end)
+
+  it("a subscribe() that raises does not break the session start", function()
+    package.loaded["ui.screenkey"] = {
+      subscribe = function()
+        error("boom")
+      end,
+    }
+    bcfg.defaults.overlays.keycast = true
+    assert.has_no.errors(keycast.session_started)
+    assert.is_false(keycast.is_active())
+    assert.truthy(msgs[#msgs].msg:find("ui.screenkey.subscribe failed:", 1, true), msgs[#msgs].msg)
+  end)
 end)
 
 describe("keycast batches", function()
