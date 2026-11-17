@@ -151,7 +151,13 @@ function M.push(bufnr, key)
   if type(key) ~= "string" or key == "" then
     return
   end
-  local payload = M.collect(bufnr)
+  -- A generated view (core/generated): the fences on screen are the ones its
+  -- render callback made, not any of the buffer, so there is nothing to paint
+  -- from here; `null` lets the tab fall back to its own highlighter.
+  local payload = nil
+  if not require("mdview.core.generated").is(bufnr) then
+    payload = M.collect(bufnr)
+  end
   local json = nil
   if payload then
     local ok, encoded = pcall(vim.json.encode, payload)

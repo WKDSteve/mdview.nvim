@@ -67,7 +67,7 @@ end
 ---@param bufnr integer
 ---@return nil
 function M.send_current_position(bufnr)
-  if not previewable.is(bufnr) then
+  if not previewable.mirrors_source(bufnr) then
     return
   end
 

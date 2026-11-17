@@ -9,7 +9,7 @@ mdview.nvim registers a single `:MDView <subcommand>` command (built via
 | `:MDView start [file] [cwd=…] [port=N]` | Start the relay and open the preview for the current buffer (or the given file: a relative path is relative to the current directory, and the unsaved text of the buffer that has exactly that file open wins over the file on disk). `cwd=`/`port=` override `server_cwd`/`server_port` for that spawn only. |
 | `:MDView stop` | Stop the relay, detach autocommands, and (in isolated mode) close the browser. |
 | `:MDView toggle [file] [cwd=…]` | Start if stopped, stop if running. |
-| `:MDView open` | Re-open a browser tab against the already-running session (does not start a new relay). |
+| `:MDView open` | Re-open a browser tab against the already-running session (does not start a new relay). Its Lua function `require("mdview").open()` also takes a `render` callback that turns a scratch buffer into a [generated view](generated-views.md). |
 | `:MDView standalone [file] [--no-browser]` | Preview via the relay's own file watcher, with no Neovim in the chain — outlives `:qa` (file on disk only; needs a relay with `--watch`, v0.3.0+). See [standalone.md](standalone.md). |
 | `:MDView theme [name]` | Switch the preview theme at runtime (`github` \| `dark-dimmed` \| `plain` \| `tokyonight` \| `catppuccin`, optionally `-light`/`-dark`); no argument reports the current theme. |
 | `:MDView preview-tab` | Toggle the in-Neovim tab preview (works standalone, no server needed). |

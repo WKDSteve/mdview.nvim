@@ -50,7 +50,7 @@ end
 ---@param bufnr integer
 ---@return boolean recorded
 function M.record(bufnr)
-  if not require("mdview.helper.previewable").is(bufnr) then
+  if not require("mdview.helper.previewable").mirrors_source(bufnr) then
     return false
   end
 

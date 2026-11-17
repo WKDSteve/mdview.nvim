@@ -44,6 +44,14 @@ function M.rooms()
   return list
 end
 
+--- Forget what Neovim put into `room` (a generated view that ended, see
+--- core/generated): the room shows no document of this session any more.
+---@param room string
+---@return nil
+function M.forget_room(room)
+  M._last_doc[room] = nil
+end
+
 --- Record (and announce to the tab) that `path` is the document now shown in
 --- `room`. Called for every push of a document into a room: the content push of
 --- an edit or a save, and the content push of a buffer switch. A no-op when it
@@ -81,6 +89,23 @@ local function cancel_pending()
   end
 end
 M._cancel_pending = cancel_pending -- exposed for teardown (bindings/autocmds/init.lua) and tests
+
+--- The throttled push of a text change (set up by `M.attach`): nil while no
+--- session is attached.
+---@type fun(bufnr: integer)|nil
+local request = nil
+
+--- Push `bufnr` through the same throttle a text change goes through: at once,
+--- or as the one trailing push of the window. A no-op while no session is
+--- attached. Used by generated views (core/generated), whose buffer-local
+--- autocmds and `refresh` are not covered by the `ft_pattern` autocmds below.
+---@param bufnr integer
+---@return nil
+function M.request_push(bufnr)
+  if request and require("mdview.core.state").is_attached() then
+    request(bufnr)
+  end
+end
 
 -- Send the current content of bufnr to the relay for `bufnr`'s room and store a
 -- session snapshot for bookkeeping. Routing (per-path vs the preview key) and
@@ -125,6 +150,15 @@ function M.push_buffer_changes(bufnr, opts)
   -- `opts.room`: bring a tab of another room up to date (a write-back request of
   -- an older tab, see inbound_poll), instead of the room Neovim feeds now.
   local target = opts and opts.room or target_key.resolve(bufnr) or path
+
+  -- A generated view in the background (its owner refreshed it while the person
+  -- works elsewhere) must not take the tab of "reuse" away from the document it
+  -- shows now.
+  local generated = require("mdview.core.generated")
+  if generated.is(bufnr) and not generated.may_push(bufnr, target) then
+    log.debug("skipping generated view in the background, room shows another document", nil, "livepush", true)
+    return
+  end
 
   local first = true
   local full = opts and opts.full == true or nil
@@ -208,6 +242,9 @@ function M.attach(group)
 
   local function on_text_changed(args)
     throttle_for_config().call(args.buf)
+  end
+  request = function(bufnr)
+    throttle_for_config().call(bufnr)
   end
 
   local opts_a = {

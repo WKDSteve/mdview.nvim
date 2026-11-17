@@ -57,21 +57,61 @@ function M.setup(opts)
   end
 end
 
---- Re-open a browser tab for the current buffer against the already-running
---- mdview-server session (does NOT start a new server — use :MDView start for
---- that). Pushes the current buffer's content first so the new tab has
---- something to render instead of waiting for the next edit.
----@param opts table|nil # { browser_url?: string, browser_cmd?: string, browser_args?: table }
+---@class MDView.OpenOpts
+---@field bufnr? integer # buffer to preview (default: the current one)
+---@field render? fun(bufnr: integer): string[] # makes `bufnr` a generated view: the browser shows these Markdown lines, not the buffer text (see mdview.core.generated)
+---@field name? string # generated view: its room, set as the buffer name (e.g. "caselog://case/app.log"); default: the buffer's own name
+---@field on_click? fun(target: string, ctx: MDView.Generated.ClickContext) # generated view: a clicked relative link (`[x](entry/42)` -> "entry/42")
+---@field browser_url? string
+---@field browser_cmd? string
+---@field browser_args? table
+
+--- Open a browser tab for a buffer against the running mdview-server session.
+--- Pushes the buffer's content first so the new tab has something to render
+--- instead of waiting for the next edit.
+---
+--- Without `render` this needs a running session (`:MDView start`) and a buffer
+--- with a file name. With `render` the buffer becomes a generated view first
+--- (any buftype, `nofile` included; see `mdview.core.generated`): mdview asks
+--- `render(bufnr)` for the Markdown, pushes again on `TextChanged` and on
+--- `mdview.refresh(bufnr)`, hands clicked relative links to `on_click`, and ends
+--- the view when the buffer is deleted. If no session runs yet and the view is
+--- the current buffer, the session is started for it (`:MDView start`).
+---@param opts MDView.OpenOpts|nil
 ---@return boolean ok
 function M.open(opts)
   opts = opts or {}
 
+  local buf = opts.bufnr
+  if buf == nil or buf == 0 then
+    buf = vim.api.nvim_get_current_buf()
+  end
+
+  if opts.render ~= nil then
+    local ok_reg, reg_err = require("mdview.core.generated").register(buf, {
+      name = opts.name,
+      render = opts.render,
+      on_click = opts.on_click,
+    })
+    if not ok_reg then
+      notify("[mdview] open: " .. tostring(reg_err), vim.log.levels.ERROR)
+      return false
+    end
+  elseif opts.name ~= nil or opts.on_click ~= nil then
+    notify("[mdview] open: `name` and `on_click` need `render` (a generated view)", vim.log.levels.ERROR)
+    return false
+  end
+
   if not state.is_attached() or not state.get_server() then
+    if opts.render ~= nil and buf == vim.api.nvim_get_current_buf() then
+      -- The start path previews the current buffer, which is this view.
+      require("mdview.bindings.usrcmds.start").run({})
+      return state.is_attached()
+    end
     notify("[mdview] no mdview session running — start one first with :MDView start", vim.log.levels.WARN)
     return false
   end
 
-  local buf = vim.api.nvim_get_current_buf()
   local key = normalize.path(vim.api.nvim_buf_get_name(buf))
   if not key or key == "" then
     notify("[mdview] current buffer has no file path to preview", vim.log.levels.WARN)
@@ -119,6 +159,15 @@ function M.open(opts)
 
   notify(("[mdview] failed to open browser: %s"):format(tostring(handle_or_err)), vim.log.levels.ERROR)
   return false
+end
+
+--- Push a generated view again (see `M.open` with `render`): for changes its
+--- buffer text does not show, such as a filter or folds. Throttled like a text
+--- change; a no-op without a running session.
+---@param bufnr integer|nil # default: the current buffer
+---@return boolean pushed # false: not a generated view, or no session running
+function M.refresh(bufnr)
+  return require("mdview.core.generated").refresh(bufnr or 0)
 end
 
 -- ADD: testfunctions

@@ -13,11 +13,13 @@
 The relay knows nothing about files or buffers — it only knows *"here is text
 for room K, fan it out"*. Everything downstream of that (WebSocket framing, the
 client, the WASM renderer) is reached through one code path regardless of where
-the text came from. That leaves room for exactly two producers:
+the text came from. That leaves room for exactly two producers (the Neovim side has two kinds of
+input, both sent the same way):
 
 | Source | Driven by | Reaches the relay via |
 | --- | --- | --- |
 | Neovim buffer | `:MDView start` | `POST /update` (token-gated), on every buffer change |
+| Generated view (another plugin's scratch buffer) | `require("mdview").open({ render = … })`, see [generated-views.md](generated-views.md) | `POST /update`, like a buffer: the text is what the plugin's `render` callback returns, not the buffer text |
 | File on disk | `:MDView standalone`, `mdview-server --watch` | `internal/source`, polling the file (a change, and an empty first read, is sent once it reads the same on two polls) and calling `registry.Broadcast` in-process |
 
 Because both converge on the same `Broadcast`, standalone mode is not a second

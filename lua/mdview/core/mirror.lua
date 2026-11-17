@@ -66,13 +66,20 @@ local function read_disk(path)
   return {}
 end
 
---- Buffer text as the preview should show it (today: the buffer text as is; for
---- a buffer that is not loaded, the file on disk). Always returns a fresh table
+--- Buffer text as the preview should show it (the buffer text as is; for a
+--- buffer that is not loaded, the file on disk; for a generated view, what its
+--- render callback answers). Always returns a fresh table
 --- the caller may mutate. An invalid buffer handle still raises, as the buffer
 --- API does.
 ---@param bufnr integer
 ---@return string[] lines
 function M.lines(bufnr)
+  -- A generated view (core/generated) shows what its owner renders, never the
+  -- buffer text and never a file of the same name.
+  local generated = require("mdview.core.generated")
+  if generated.is(bufnr) then
+    return generated.lines(bufnr)
+  end
   if api.nvim_buf_is_loaded(bufnr) then
     return api.nvim_buf_get_lines(bufnr, 0, -1, false)
   end
@@ -142,6 +149,10 @@ end
 function M.lines_for_path(path)
   if type(path) ~= "string" or path == "" then
     return {}
+  end
+  local view = require("mdview.core.generated").by_name(path)
+  if view then
+    return M.lines(view)
   end
   local ok, abs = pcall(vim.fn.fnamemodify, path, ":p")
   if not ok or type(abs) ~= "string" or abs == "" then

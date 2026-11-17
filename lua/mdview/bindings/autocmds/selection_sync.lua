@@ -130,7 +130,7 @@ function M.send_current_selection(bufnr)
     M.clear()
     return
   end
-  if not previewable.is(bufnr) then
+  if not previewable.mirrors_source(bufnr) then
     return
   end
   -- Pinned to another document (:MDView pin): a selection made in some other

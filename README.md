@@ -109,6 +109,7 @@ says what each one answers.
 - [Configuration](docs/configuration.md) — every `setup()` option and its default.
 - [Commands](docs/commands.md) — every `:MDView` subcommand, including what ships with the defaults.
 - [Bindings cheatsheet](docs/BINDINGS.md) — commands, autocommands and keymaps at a glance.
+- [Generated views](docs/generated-views.md) — the Lua API for other plugins: show a scratch buffer's rendered Markdown live (`mdview.open({ render = … })`, `mdview.refresh()`).
 - [Workflow](docs/WORKFLOW.md) — once a session is running: which controls apply live, which need a restart, what breaks first.
 
 ### What it does

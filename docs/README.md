@@ -19,6 +19,7 @@ The [repository README](../README.md) is the short version; this is the index.
 | [commands.md](commands.md) | What does each `:MDView` subcommand do? |
 | [configuration.md](configuration.md) | Which `setup()` options exist, and what are their defaults? |
 | [BINDINGS.md](BINDINGS.md) | Commands, autocommands and keymaps at a glance, with the full argument shape of each. |
+| [generated-views.md](generated-views.md) | How does another plugin show a scratch buffer live in the preview, with Markdown it renders itself (`mdview.open({ render = … })`)? |
 | [standalone.md](standalone.md) | How do I get a preview that outlives `:qa`, or runs with no Neovim at all? |
 | [companion-plugins.md](companion-plugins.md) | Which optional plugins pair with the live preview, and what does each add? |
 | [health.md](health.md) | What does `:checkhealth mdview` report, section by section? |

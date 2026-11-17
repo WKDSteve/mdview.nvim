@@ -904,9 +904,34 @@ Lua API ~
 
                                                                *mdview.open()*
 `require("mdview").open({opts})` is the function behind |:MDView-open|.
-{opts} (all optional): `browser_url` (explicit URL override), `browser_cmd`,
-`browser_args`. Returns `true` on success, `false` on failure (after
-notifying why).
+{opts} (all optional): `bufnr` (default: the current buffer), `browser_url`
+(explicit URL override), `browser_cmd`, `browser_args`, and for a generated
+view `render`, `name`, `on_click` (see |mdview-generated|). Returns `true` on
+success, `false` on failure (after notifying why).
+
+                                                    *mdview-generated*
+Generated view: another plugin's scratch buffer (any 'buftype', `nofile`
+included) whose preview is Markdown the plugin renders: >lua
+
+  require("mdview").open({
+    bufnr = buf,
+    name = "caselog://case-1/app.log.md",  -- room + buffer name, must end in .md
+    render = function(bufnr) return md_lines end,
+    on_click = function(target, ctx) end,  -- optional, clicked relative link
+  })
+<
+mdview asks `render(bufnr)` instead of reading the buffer, pushes again on
+|TextChanged| and on |mdview.refresh()|, hands a clicked relative link
+(`[x](entry/42)` -> "entry/42") to `on_click`, leaves line-for-line features
+(scroll/selection sync, write-back) alone and ends the view when the buffer is
+deleted. Without a session, `open` starts one when the view is the current
+buffer. Full contract: docs/generated-views.md in the repository.
+
+                                                            *mdview.refresh()*
+`require("mdview").refresh([bufnr])` pushes a generated view again now (a
+filter or folds changed, which the buffer text does not show). Throttled like
+a text change. Returns `false` for a buffer that is no generated view, or
+without a running session.
 
 ==============================================================================
 6. AUTOCOMMANDS                                               *mdview-autocmds*

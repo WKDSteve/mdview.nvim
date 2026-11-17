@@ -17,6 +17,11 @@ local M = {}
 ---@param bufnr integer
 ---@return boolean
 function M.is(bufnr)
+  -- A generated view (core/generated) is previewable by registration, whatever
+  -- its buftype: its owner asked for it, and the text comes from its renderer.
+  if require("mdview.core.generated").is(bufnr) then
+    return true
+  end
   local defaults = require("mdview.config").defaults
 
   local ok_bt, buftype = pcall(safe_buf_get_option, bufnr, "buftype")
@@ -44,6 +49,15 @@ function M.is(bufnr)
   local ok_ft, ft = pcall(safe_buf_get_option, bufnr, "filetype")
   ft = ok_ft and ft or ""
   return ft == "markdown" or ft == "md"
+end
+
+--- Whether the preview of `bufnr` is its own text, line for line: what scroll and
+--- selection sync, breadcrumbs and the browser write-back rely on. False for a
+--- generated view, whose lines are not the lines on screen.
+---@param bufnr integer
+---@return boolean
+function M.mirrors_source(bufnr)
+  return M.is(bufnr) and not require("mdview.core.generated").is(bufnr)
 end
 
 return M

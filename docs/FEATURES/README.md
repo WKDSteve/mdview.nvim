@@ -56,6 +56,10 @@ In detail in [`PREVIEW.md`](PREVIEW.md).
   another language), translated line for line by language.nvim, patched in as
   paragraphs finish, never half; off by default, `:MDView lang <code>|off`.
   Plus the generic `browser.transform` hook it is built on.
+- **Generated views** — another plugin shows a scratch buffer (`nofile`) live
+  in the preview with Markdown it renders itself: `mdview.open({ render = … })`
+  and `mdview.refresh()`, clicks on relative links go back to the plugin. See
+  [`generated-views.md`](../generated-views.md).
 - **Document pinning** — `:MDView pin` holds the preview on one document while
   you read around in other buffers, instead of the tab following every buffer
   switch.

@@ -92,6 +92,20 @@ local function handle_nav(key, href)
   if type(key) ~= "string" or type(href) ~= "string" or href == "" then
     return
   end
+  -- Generated views (core/generated). Back/Forward to one: show its buffer
+  -- again. A link clicked in one: its owner decides what it means (on_click);
+  -- it is never a file next to a document that has no directory.
+  local generated = require("mdview.core.generated")
+  local view = generated.by_name(href)
+  if view then
+    pcall(vim.cmd.buffer, view)
+    return
+  end
+  local shown = generated.by_name(require("mdview.bindings.autocmds.live_push").shown_document(key) or key)
+  if shown and not is_absolute(href) then
+    generated.click(shown, href)
+    return
+  end
   local target
   if is_absolute(href) then
     target = href
@@ -203,6 +217,9 @@ local function target_buffer(key, doc)
   local buf = buf_for_key(shown)
   if not buf or not vim.api.nvim_buf_is_loaded(buf) then
     return nil, "the document is not loaded"
+  end
+  if require("mdview.core.generated").is(buf) then
+    return nil, "this view is generated, it cannot be edited here"
   end
   if not require("mdview.helper.previewable").is(buf) then
     return nil, "the document is not one mdview previews"
@@ -422,7 +439,8 @@ local function handle_scroll(key, ratio)
   end
   -- The room is not the document under "reuse": scroll the shown one.
   local buf = buf_for_key(require("mdview.bindings.autocmds.live_push").shown_document(key) or key)
-  if not buf then
+  -- A generated view's lines are not the lines on screen: no position to map.
+  if not buf or require("mdview.core.generated").is(buf) then
     return
   end
   -- Only move the cursor in a window actually showing that buffer.
