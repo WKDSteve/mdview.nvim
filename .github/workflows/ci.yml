@@ -248,7 +248,7 @@ jobs:
           retention-days: 14
 
   browser:
-    # TESTS/browser/*.e2e.mjs (cursor-line band and its corner cases, TOC anchor jump, spotlight mirror) in a real chromium (needs the relay binary and the
+    # TESTS/browser/*.e2e.mjs (cursor-line band and its corner cases, TOC anchor jump, spotlight mirror, keycast overlay) in a real chromium (needs the relay binary and the
     # client bundle, so it builds both like the release job). Exit 77 of the script would be a skip, not a green run.
     name: Browser e2e (Playwright)
     runs-on: ubuntu-latest
@@ -284,7 +284,7 @@ jobs:
       - name: Install chromium (the pinned Playwright version)
         run: npx playwright-core install --with-deps chromium
 
-      - name: Browser e2e (band, band cases, anchor jump, spotlight mirror)
+      - name: Browser e2e (band, band cases, anchor jump, spotlight mirror, keycast)
         run: |
           set +e
           npm run test:browser

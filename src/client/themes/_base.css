@@ -440,6 +440,37 @@ body {
   font-size: 13px;
   box-shadow: 0 6px 24px rgba(0, 0, 0, 0.12);
 }
+/* Keycast overlay: the keys pressed in Neovim, a pill at the bottom center that
+   fades out after the last key (src/client/render/overlays/keycast.ts). */
+.mdview-keycast {
+  position: fixed;
+  left: 50%;
+  bottom: 1.5rem;
+  transform: translateX(-50%);
+  max-width: 80vw;
+  padding: 0.35rem 0.9rem;
+  border-radius: 999px;
+  background: rgba(20, 20, 20, 0.82);
+  color: #fff;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  font-size: 18px;
+  white-space: pre;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  pointer-events: none;
+  opacity: 0;
+  transition: opacity 0.4s ease;
+}
+.mdview-keycast-on {
+  opacity: 1;
+  transition: opacity 0.08s ease;
+}
+@media (prefers-reduced-motion: reduce) {
+  .mdview-keycast,
+  .mdview-keycast-on {
+    transition: none;
+  }
+}
 .mdview-toc-head {
   font-size: 11px;
   opacity: 0.6;

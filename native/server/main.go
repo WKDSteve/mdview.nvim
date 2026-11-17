@@ -71,6 +71,12 @@ const spansMessagePrefix = "\x06"
 // src/client/main.ts's SPOTLIGHT_MESSAGE_PREFIX.
 const spotlightMessagePrefix = "\x07"
 
+// Tags a WS message as a keycast batch (JSON: the recent keys pressed in
+// Neovim, already formatted, e.g. {"text":":w<CR>"}) for the keycast overlay.
+// Must match src/client/main.ts's KEYS_MESSAGE_PREFIX. \x08 is a control byte
+// that can't appear in typed Markdown.
+const keysMessagePrefix = "\x08"
+
 // wsConn adapts a *websocket.Conn to relay.Conn so relay.Registry stays
 // decoupled from the WebSocket library and can be tested without a network.
 type wsConn struct {
@@ -163,6 +169,7 @@ func main() {
 	mux.HandleFunc("/diff", handleDiff(registry, *token))
 	mux.HandleFunc("/spans", handleSpans(registry, *token))
 	mux.HandleFunc("/spotlight", handleSpotlight(registry, *token))
+	mux.HandleFunc("/keys", handleKeys(registry, *token))
 	mux.HandleFunc("/close", handleClose(registry, *token))
 	mux.HandleFunc("/nav", handleNav(navQueue, *token))
 	mux.HandleFunc("/toggle", handleToggle(toggleQueue, watchKey, watchPath, *token))
@@ -717,6 +724,40 @@ func handleSpotlight(registry *relay.Registry, token string) http.HandlerFunc {
 			return
 		}
 		registry.BroadcastSpotlight(append([]byte(spotlightMessagePrefix), body...))
+		w.WriteHeader(http.StatusNoContent)
+	}
+}
+
+const maxKeysBodyBytes = 4 << 10 // one line of formatted keys
+
+// handleKeys fans a keycast batch (the recent keys pressed in Neovim, as one
+// small JSON object) out to every tab. Powers the keycast overlay.
+//
+// Like /spotlight it takes no key: the keys belong to the editor, not to a
+// document. Unlike /spotlight it is ephemeral (BroadcastAllEphemeral): keys are
+// a passing event, and a tab that joins or reloads must not be shown keys
+// typed before it was there. Neovim posts one batch per pause in typing, not
+// one request per keystroke. The relay never inspects the payload.
+func handleKeys(registry *relay.Registry, token string) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		if r.Method != http.MethodPost {
+			http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
+			return
+		}
+		if !relay.ValidToken(token, r.URL.Query().Get("token")) {
+			http.Error(w, "forbidden", http.StatusForbidden)
+			return
+		}
+		body, err := io.ReadAll(io.LimitReader(r.Body, maxKeysBodyBytes+1))
+		if err != nil {
+			http.Error(w, "failed to read body", http.StatusBadRequest)
+			return
+		}
+		if len(body) > maxKeysBodyBytes {
+			http.Error(w, "payload too large", http.StatusRequestEntityTooLarge)
+			return
+		}
+		registry.BroadcastAllEphemeral(append([]byte(keysMessagePrefix), body...))
 		w.WriteHeader(http.StatusNoContent)
 	}
 }

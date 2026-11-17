@@ -6,8 +6,10 @@
 
 import { registerOverlay } from './manager';
 import { tocOverlay } from './toc';
+import { keycastOverlay } from './keycast';
 
 registerOverlay(tocOverlay);
+registerOverlay(keycastOverlay);
 
 export {
   initOverlays,
@@ -21,4 +23,5 @@ export {
   registerOverlay,
   resetOverlays,
 } from './manager';
+export { parseKeycast } from './keycast';
 export type { Overlay, OverlayCtx } from './types';

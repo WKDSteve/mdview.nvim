@@ -38,6 +38,8 @@ function M.teardown()
   -- be deduplicated against what this one was last sent.
   pcall(require("mdview.bindings.autocmds.spotlight_sync").reset)
   pcall(require("mdview.adapter.inbound_poll").stop)
+  -- The keycast capture (vim.on_key inside ui.screenkey) runs only during a session.
+  pcall(require("mdview.core.keycast").session_ended)
   -- The shared-relay heartbeat belongs to the session too (detaching from the
   -- relay is :MDView stop's and VimLeavePre's job, not a teardown's).
   pcall(require("mdview.adapter.shared_relay").stop_heartbeat)
@@ -87,6 +89,10 @@ function M.attach()
   -- unless one is enabled). Not an autocmd, but shares the session lifecycle —
   -- started here, stopped in teardown.
   pcall(require("mdview.adapter.inbound_poll").start)
+
+  -- The keycast overlay's capture: starts here when browser.overlays.keycast is
+  -- on, stops in teardown (see mdview.core.keycast).
+  pcall(require("mdview.core.keycast").session_started)
 
   -- Shared relay (no-op without one): take the tab over on focus/activity, and
   -- keep telling the relay this instance is there.

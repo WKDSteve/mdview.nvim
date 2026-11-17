@@ -52,6 +52,7 @@ import {
   notifyCursor as notifyOverlayCursor,
   notifyRender as notifyOverlayRender,
   dispatchOverlayControl,
+  parseKeycast,
 } from './render/overlays';
 import { currentDocument, installHistory, onDocChange } from './render/history';
 import { readEditState, writeEditState } from './render/editState';
@@ -125,6 +126,12 @@ const SPANS_MESSAGE_PREFIX = '\x06';
 // spotlightMessagePrefix. The relay keeps the latest one and seeds every
 // joining tab with it, so a reload shows the highlights at once.
 const SPOTLIGHT_MESSAGE_PREFIX = '\x07';
+
+// Tags a WS message as a keycast batch (JSON: {"text": "<the recent keys>"},
+// already formatted in Neovim) — must match native/server/main.go's
+// keysMessagePrefix. Ephemeral and sent to every tab; only the keycast
+// overlay reads it, and only while it is on.
+const KEYS_MESSAGE_PREFIX = '\x08';
 
 function applyScrollPing(container: HTMLElement, message: string): void {
   // Payload: "line/total/viewfrac[/col]". viewfrac (0..1) is where in the browser
@@ -789,6 +796,13 @@ async function boot() {
       // Arrives on its own channel, after the content it describes, so the
       // document is already rendered and only needs repainting.
       applySpans(rawMessage.slice(SPANS_MESSAGE_PREFIX.length));
+      return;
+    }
+
+    if (rawMessage.startsWith(KEYS_MESSAGE_PREFIX)) {
+      // The keys pressed in Neovim, for the keycast overlay (a no-op while it is off).
+      const text = parseKeycast(rawMessage.slice(KEYS_MESSAGE_PREFIX.length));
+      if (text !== null) dispatchOverlayControl('keycast', text);
       return;
     }
 

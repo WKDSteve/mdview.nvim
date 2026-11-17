@@ -167,6 +167,10 @@ Defaults: >lua
       zoom                = 1.0,       -- preview font-size zoom (:MDView zoom)
       overlays            = {          -- preview overlays (:MDView overlay)
         toc = false,                   -- floating outline, current section lit
+        keycast = false,               -- the keys pressed in Neovim (needs ui.nvim)
+      },
+      keycast             = {          -- what the keycast overlay shows
+        scope = "normal",              -- "normal"|"insert_protected"|"all"
       },
       focus               = "browser", -- "browser" | "nvim" (keep editor focus)
       autodetect_browser  = true,  -- isolated mode only
@@ -871,10 +875,16 @@ pushes a control update over the socket.
 :MDView overlay [name] [action]                             *:MDView-overlay*
 :MDView overlay list                                   *:MDView-overlay-list*
   Toggles a preview overlay (`browser.overlays`): an independent, toggleable
-  layer drawn over the document. Currently `toc` — a floating outline that
-  highlights the section the cursor is in and shows how far along you are.
-  Without a name (or with `list`) it reports the known overlays and their
-  state. Both arguments are tab-completed.
+  layer drawn over the document. `toc` — a floating outline that highlights
+  the section the cursor is in and shows how far along you are. `keycast` —
+  the keys pressed in Neovim as a fading pill at the bottom, for lectures and
+  recordings; off by default, needs ui.nvim (`ui.screenkey.subscribe`), and
+  `browser.keycast.scope` decides what it shows: "normal" (default) no
+  Insert-mode text, "insert_protected" Insert-mode text but never what is
+  typed into a password prompt, "all" everything. An overlay switched on
+  without a session shows in the next tab. Without a name (or with `list`)
+  it reports the known overlays and their state. Both arguments are
+  tab-completed.
 
 :MDView breadcrumbs                                     *:MDView-breadcrumbs*
 :MDView breadcrumbs export [path]                *:MDView-breadcrumbs-export*

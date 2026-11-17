@@ -56,6 +56,13 @@ the next change in Neovim. The relay stores and forwards it without looking
 inside, like `/spans`. See
 [FEATURES/PREVIEW.md](FEATURES/PREVIEW.md#spotlight-mirror).
 
+`/keys` belongs to no document either: the keycast overlay's batches (the
+keys pressed in Neovim, one small JSON object, capped at 4 KiB). It is
+broadcast to every tab (`\x08`-prefixed) but, unlike `/spotlight`,
+never stored: keys are a passing event, and a tab that joins later must not
+be shown what was typed before it. See
+[FEATURES/PREVIEW.md](FEATURES/PREVIEW.md#keycast-overlay).
+
 ## Local image assets
 
 The WASM renderer produces correct `<img>` markup for `![alt](path)` on its

@@ -79,10 +79,20 @@ cmd(
 
 cmd(
   "overlay list",
-  [[_G.said("[mdview] overlays:\n  toc        off   — floating outline with the current section highlighted", "INFO")]],
+  [[_G.said("[mdview] overlays:\n  keycast    off   — the keys pressed in Neovim as a fading pill", "INFO")]],
   "lists the overlays, each with its state"
 )
-cmd("overlay", [[_G.said("[mdview] overlays:\n  toc        off", "INFO")]], "without a name lists them as well")
+cmd(
+  "overlay",
+  [[_G.said("\n  toc        off   — floating outline with the current section highlighted", "INFO")]],
+  "without a name lists them as well"
+)
+cmd(
+  "overlay keycast",
+  [[require("mdview.config.browser").defaults.overlays.keycast == false
+    and _G.said("[mdview] overlay keycast is unavailable: ui.nvim is not installed", "WARN")]],
+  "says it needs ui.nvim (not on the sheet's runtimepath) and stays off"
+)
 cmd(
   "overlay toc",
   [[require("mdview.config.browser").defaults.overlays.toc == true

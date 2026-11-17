@@ -810,6 +810,31 @@ function M.send_spotlight(json, cb)
   end)
 end
 
+-- Public: send a keycast batch (JSON, e.g. {"text":":w<CR>"}) to every tab
+-- (/keys, no room key: the keys are the editor's). Fire-and-forget like
+-- /spotlight; mdview.core.keycast batches, so this is never one POST per key.
+---@param json string
+---@param cb? fun(ok: boolean, err: string|nil)
+---@return nil
+function M.send_keys(json, cb)
+  cb = cb or function() end
+  if type(json) ~= "string" or json == "" then
+    cb(false, "empty payload")
+    return
+  end
+  local port = vim.g.mdview_server_port or DEFAULT_PORT
+  local token = require("mdview.core.state").get_token() or ""
+  local url = string.format("http://localhost:%d/keys?token=%s", port, vim.uri_encode(token))
+  http_post_nonblocking(url, json, function(code, stdout_lines, stderr_lines)
+    if code == 0 and not stdout_lines then
+      cb(true, nil)
+      return
+    end
+    local detail = table.concat(stdout_lines or stderr_lines or { "curl exit " .. tostring(code) }, " "):sub(1, 200)
+    cb(false, detail)
+  end)
+end
+
 -- Public: ask every connected preview tab to close itself (the relay
 -- broadcasts a close signal to all rooms; the client calls window.close()).
 -- Used by :MDView stop so tabs opened in the OS default browser — which mdview

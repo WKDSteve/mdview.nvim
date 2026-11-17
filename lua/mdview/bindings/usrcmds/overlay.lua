@@ -22,6 +22,7 @@ local M = {}
 ---@type table<string, mdview.OverlaySpec>
 M.known = {
   toc = { desc = "floating outline with the current section highlighted" },
+  keycast = { desc = "the keys pressed in Neovim as a fading pill (needs ui.nvim)" },
 }
 
 --- Registered overlay names, sorted (drives completion).
@@ -93,7 +94,19 @@ function M.run(name, action)
     return
   end
 
+  if name == "keycast" and on then
+    local keycast = require("mdview.core.keycast")
+    local ok, reason = keycast.available()
+    if not ok then
+      states[name] = false
+      notify(("[mdview] overlay keycast is unavailable: %s"):format(reason or "?"), vim.log.levels.WARN)
+      return
+    end
+  end
   states[name] = on
+  if name == "keycast" then
+    require("mdview.core.keycast").sync()
+  end
 
   if state.get_server() and control.send({ overlay = { name = name, on = on } }) then
     notify(("[mdview] overlay %s: %s"):format(name, on and "on" or "off"), vim.log.levels.INFO)

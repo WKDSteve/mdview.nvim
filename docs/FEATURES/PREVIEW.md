@@ -356,10 +356,12 @@ used. A non-number is refused, as before.
 ## Overlays (floating table of contents)
 
 `:MDView overlay <name> [on|off|toggle]` mounts/unmounts a named overlay on
-top of the rendered preview without a reload — currently one overlay ships,
-`toc`, a floating outline with the current section highlighted as the
-cursor/scroll position moves. `:MDView overlay list` (or a bare `:MDView
-overlay`) reports every known overlay and whether it's currently on. The
+top of the rendered preview without a reload — two overlays ship: `toc`, a
+floating outline with the current section highlighted as the cursor/scroll
+position moves, and `keycast` (below). `:MDView overlay list` (or a bare
+`:MDView overlay`) reports every known overlay and whether it's currently on.
+An overlay switched on without a session, or set in `setup()`, shows in the
+next tab (`?overlays=`). The
 Neovim-side manifest (`M.known` in the module below) has to stay in sync
 with the overlay names the client actually registers
 (`src/client/render/overlays/index.ts`) when a new one is added.
@@ -367,6 +369,46 @@ with the overlay names the client actually registers
 - **Module:** `lua/mdview/bindings/usrcmds/overlay.lua`, `src/client/render/overlays/index.ts`
 - **Usercmds:** `:MDView overlay <name> [on|off|toggle]`, `:MDView overlay list`
 - **Config:** `browser.overlays.<name>` (per-overlay boolean, default off)
+
+## Keycast overlay
+
+`:MDView overlay keycast on` shows the keys pressed in Neovim as a pill at the
+bottom of the preview (`<C-w>`, `<Esc>`, `:w<CR>`, `j×3`), fading out about
+1.5 s after the last key — for a lecture or a screen recording of a shared
+preview, so the audience sees what is typed. `:MDView overlay keycast off` (or
+`toggle`) hides it again at once.
+
+**Privacy.** What you type is private, so the overlay is off by default
+(`browser.overlays.keycast = false`) and its scope starts at the narrowest:
+
+| `browser.keycast.scope` | Shows |
+| --- | --- |
+| `"normal"` (default) | only keys typed outside Insert, Replace and Terminal mode — commands, motions, the command line (`:w<CR>`). Text typed in Insert mode never leaves Neovim |
+| `"insert_protected"` | Insert-mode text too, but never a key typed into password-like input: while `inputsecret()` or `input()` waits, in a `buftype=prompt` buffer, in a secret `ui.kit` prompt, or in a buffer of ui.screenkey's `hide = { buftypes, filetypes }` lists (your own denylist). The key that submits such a prompt is hidden too; the keys right before and after it are shown |
+| `"all"` | every key, password prompts included — only for a preview nobody else sees |
+
+Keys typed into a `:terminal` (a `sudo` password) cannot be told from other
+text: `"normal"` leaves Terminal mode out, with `"insert_protected"` add
+`hide = { buftypes = { "terminal" } }` to ui.screenkey's setup. Keys read
+with `getchar()` are not captured at all. The keys go to the loopback relay
+and the preview tabs only, never anywhere else, and the relay does not keep
+them: a tab opened or reloaded later shows nothing typed before.
+
+**Needs ui.nvim.** The capture, the key names and the protection are
+ui.nvim's (`ui.screenkey.subscribe`, the same capture as its `:UI screenkey`
+HUD), so they are not written twice. mdview binds to it softly: without
+ui.nvim, or with one that predates `subscribe`, `:MDView overlay keycast on`
+says the overlay is unavailable and captures nothing.
+
+**Cost.** `vim.on_key` is attached only while the overlay is on *and* a
+session runs, and detached when either ends. Keys are sent in batches — at
+most one POST to `/keys` every 120 ms while typing, carrying the whole
+current line — never one request per keystroke.
+
+- **Module:** `lua/mdview/core/keycast.lua`, `src/client/render/overlays/keycast.ts`
+- **Relay:** `POST /keys` (`native/server/main.go`, `handleKeys`), broadcast to every tab with the `\x08` prefix, not stored
+- **Usercmds:** `:MDView overlay keycast [on|off|toggle]`
+- **Config:** `browser.overlays.keycast` (default `false`), `browser.keycast.scope` (default `"normal"`)
 
 ## Breadcrumbs (session outline)
 
