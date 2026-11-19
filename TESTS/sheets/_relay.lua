@@ -23,14 +23,8 @@
 
 local M = {}
 
-vim.opt.shortmess:append("I")
-vim.o.swapfile = false
-
 ---@type { msg: string, level: integer? }[]
 _G.msgs = {}
-vim.notify = function(msg, level)
-  _G.msgs[#_G.msgs + 1] = { msg = tostring(msg), level = level }
-end
 
 ---Whether any message so far contains `text` (plain).
 ---@param text string
@@ -50,20 +44,34 @@ function M.relay_binary()
   return require("mdview.adapter.server_args").local_built_binary()
 end
 
----A port of 127.0.0.1 nobody listens on right now.
+---A port of 127.0.0.1 nobody listens on right now, between 20000 and 39999. Not one the system hands out for port 0:
+---that comes from the ephemeral range (on Windows up to 65535), and `:MDView standalone` listens on
+---`server_port + 100`, which must still be a port.
 ---@return integer
-local function free_port()
-  local tcp = assert(vim.uv.new_tcp())
-  assert(tcp:bind("127.0.0.1", 0))
-  local port = tcp:getsockname().port
-  tcp:close()
-  return port
+function M.free_port()
+  for _ = 1, 100 do
+    local port = math.random(20000, 39999)
+    local tcp = assert(vim.uv.new_tcp())
+    local ok = tcp:bind("127.0.0.1", port)
+    tcp:close()
+    if ok then
+      return port
+    end
+  end
+  error("no free port of 127.0.0.1 between 20000 and 39999")
 end
 
 ---@param opts? { experimental?: table, shared?: boolean, browser?: table }
 ---@return boolean
 function M.setup(opts)
   opts = opts or {}
+
+  vim.opt.shortmess:append("I")
+  vim.o.swapfile = false
+  _G.msgs = {}
+  vim.notify = function(msg, level)
+    _G.msgs[#_G.msgs + 1] = { msg = tostring(msg), level = level }
+  end
 
   -- The fixture: a Markdown file with two task-list items (realpath: on macOS tempname() is below /var, a link to
   -- /private/var, and mdview keys a document by its resolved path).
@@ -81,7 +89,7 @@ function M.setup(opts)
   vim.fn.mkdir(web, "p")
   vim.fn.writefile({ "<!doctype html><title>mdview sheet</title>" }, web .. "/index.html")
 
-  _G.port = free_port()
+  _G.port = M.free_port()
 
   require("mdview").setup({
     deps_popup = false,
