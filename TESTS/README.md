@@ -48,8 +48,15 @@ items of the nvim config's bindings checklist: with the setup of that config
 transport `mdview.adapter.ws_client` recorded, a stand-in session state, the
 browser a recording stand-in on the `PATH`) every `:MDView` subcommand that
 does not need a running relay is typed and what it said, opened, wrote or sent
-is read back. `:MDView start`, `standalone` and what the page shows stay
-`manual` lines of the sheets.
+is read back. What the page shows stays a `manual` line of the sheets.
+
+The feature sheets (`feature = ...`, catalog `TESTS/sheets/features.lua`)
+run the real relay of this checkout (`_relay.lua`): `:MDView start` with
+pushes, the browser->Neovim poll and a checkbox ticked from the browser side,
+the shared relay, `:MDView standalone`, `:checkhealth`, `:MDView diagnose` and
+`:MDView paragraph` with a tab per document. They need the relay built
+(`npm run build:go`; CI builds it before the suite) and are a reported skip
+without it. `testing perf` measures the processes of the plugin through them.
 
 The state guard is strict (`state = "error"` in `.testing.lua`): a case that
 leaves a buffer, window, tab page, autocmd, keymap or user command behind

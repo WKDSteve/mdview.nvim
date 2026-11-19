@@ -225,6 +225,14 @@ jobs:
           repository: "WKDSteve/testing.nvim"
           path: .deps/testing.nvim
           ref: ci-verified
+      # The feature sheets of the preview (TESTS/sheets/_relay.lua) run the relay of this checkout. Without a build
+      # they are a reported skip, and CI counts the skip of a feature sheet as red.
+      - uses: actions/setup-go@v7
+        with:
+          go-version-file: native/server/go.mod
+          cache-dependency-path: native/server/go.sum
+      - name: Build the relay (for the feature sheets)
+        run: node scripts/build-go.mjs
       - name: Run headless-nvim specs (real Neovim API)
         # Specs under TESTS/nvim/ exercise vim-dependent modules; the runner
         # exits non-zero if any case fails.
