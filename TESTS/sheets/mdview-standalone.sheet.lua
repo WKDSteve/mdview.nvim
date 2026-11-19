@@ -31,13 +31,17 @@ return {
     {
       lua = [[for _, m in ipairs(_G.msgs) do
         _G.standalone_pid = _G.standalone_pid or tonumber(m.msg:match("standalone preview started %(pid (%d+)%)"))
+        _G.standalone_port = _G.standalone_port or tonumber(m.msg:match("Open: http://localhost:(%d+)/"))
       end]],
-      note = "read the pid from the message",
+      note = "read the pid and the port from the message",
     },
-    { expect = [[_G.heard("Open: http://localhost:") and _G.heard("doc.md")]], note = "it names the URL to open" },
-    { expect = [[_G.standalone_pid ~= nil and _G.alive(_G.standalone_pid)]], note = "the relay runs" },
+    {
+      expect = [[_G.standalone_pid ~= nil and _G.standalone_port ~= nil and _G.heard("doc.md")]],
+      note = "it names the pid and the URL to open",
+    },
+    { wait = [[_G.listening(_G.standalone_port)]], timeout = 5000, note = "the relay serves the preview" },
     { lua = [[vim.uv.kill(_G.standalone_pid, "sigterm")]], note = "kill the pid, as the message says" },
-    { wait = [[not _G.alive(_G.standalone_pid)]], timeout = 5000, note = "the relay is gone" },
+    { wait = [[not _G.listening(_G.standalone_port)]], timeout = 5000, note = "the relay is gone" },
   },
   manual = {
     ":MDView standalone on a saved file opens a tab in the default browser; the tab follows saves of the file and "

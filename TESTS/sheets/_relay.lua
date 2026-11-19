@@ -199,19 +199,31 @@ function _G.other_instance()
     "--shared",
     "--discovery-file",
     shared.discovery_path(),
+    -- Short, so the relay also ends when the detach of `:MDView stop` did not reach it (the blocking POST /detach
+    -- has one second, and a curl to localhost loses 200 ms and more on Windows before it tries 127.0.0.1).
     "--idle-timeout",
-    "30",
+    "5",
   }, { text = true }, function(res)
     _G.other_exit = res.code
   end)
   return true
 end
 
----Whether a process with this pid still runs.
----@param pid integer
+---Whether something accepts a connection on `port` of 127.0.0.1 (waits up to a second for the answer). Not
+---`uv.kill(pid, 0)`: a killed detached relay stays a zombie of the editor on Linux and macOS, and a zombie has a pid.
+---@param port integer
 ---@return boolean
-function _G.alive(pid)
-  return vim.uv.kill(pid, 0) == 0
+function _G.listening(port)
+  local tcp = assert(vim.uv.new_tcp())
+  local result = nil
+  tcp:connect("127.0.0.1", port, function(err)
+    result = err == nil
+  end)
+  vim.wait(1000, function()
+    return result ~= nil
+  end, 10)
+  tcp:close()
+  return result == true
 end
 
 return M

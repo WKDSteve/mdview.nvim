@@ -54,8 +54,8 @@ return {
     { keys = ":MDView stop<CR>", note = "stop the preview here" },
     {
       wait = [[_G.other_exit ~= nil]],
-      timeout = 10000,
-      note = "detached: the relay, left without an instance, ends",
+      timeout = 15000,
+      note = "detached: the relay, left without an instance, ends (at the latest after its idle timeout of 5 s)",
     },
     { expect = [[not require("mdview.adapter.shared_relay").is_attached()]], note = "and this instance let go" },
   },
