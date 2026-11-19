@@ -160,7 +160,10 @@ return {
   task = "mdview.nvim/bindings-checkliste-im-echten-browser-abnehmen",
   engine = "rpc",
   sizes = { { rows = 30, cols = 120 } },
-  fakes = { "mdview-sheet-browser" },
+  -- `cursor` and `edit`: on Windows the browser stand-in is a .cmd file, and cmd.exe runs every `&<key>=<value>` of
+  -- the preview URL as a command of its own (`&cursor=caret` started the Cursor editor, `&edit=1` would start
+  -- edit.exe); stand-ins of those names catch them until testing.nvim's stand-in keeps an argument whole.
+  fakes = { "mdview-sheet-browser", "cursor", "edit" },
   steps = steps,
   manual = {
     "In the real config: :MDView start opens the preview of the current buffer in the default browser, :MDView open opens a second tab on the same session, :MDView weblogs then shows the relay's real stdout",
