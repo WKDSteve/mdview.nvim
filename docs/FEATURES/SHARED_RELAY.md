@@ -50,8 +50,8 @@ its own relay and its own tab, as before.
 - **Versions.** The relay reports the shared protocol it speaks; an instance
   only attaches to a relay that speaks its own, otherwise it spawns one of its
   own (so two plugin versions never half-work against one relay).
-- **Needs a relay with `--shared`** -- newer than the pinned release `v0.4.3`;
-  until the next release point `dev.binary_path` at a locally built relay
+- **Needs a relay with `--shared`** -- release `v0.4.4` or newer (the pinned
+  default); an older pin needs `dev.binary_path` at a locally built relay
   (`npm run build:go`).
 
 `:MDView open` still opens a tab for the current buffer of its own (a second

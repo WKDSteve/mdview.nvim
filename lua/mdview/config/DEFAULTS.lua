@@ -124,7 +124,7 @@
 --- One relay and one preview tab for every Neovim instance (opt-in). See
 --- docs/FEATURES/SHARED_RELAY.md.
 ---@class mdview.config.SharedRelayDefaults
----@field enabled boolean the first `:MDView start` spawns a shared relay detached from its instance and advertises it in `stdpath("state")/mdview/relay.json`; a later `:MDView start` in another instance attaches to it (no second relay, no second tab). The tab follows the instance that has the focus, write-backs go to the instance that owns the document on screen. Default false: one relay per instance. Needs a relay with `--shared` (newer than v0.4.3; `dev.binary_path` until the next release)
+---@field enabled boolean the first `:MDView start` spawns a shared relay detached from its instance and advertises it in `stdpath("state")/mdview/relay.json`; a later `:MDView start` in another instance attaches to it (no second relay, no second tab). The tab follows the instance that has the focus, write-backs go to the instance that owns the document on screen. Default false: one relay per instance. Needs a relay with `--shared` (v0.4.4 or newer)
 ---@field heartbeat_ms integer how often an attached instance tells the relay it is still there and learns who owns the tab (default 2000)
 ---@field idle_timeout_s integer seconds without a heartbeat after which the relay counts an instance as gone; the relay ends once none is left (default 30)
 
@@ -344,7 +344,7 @@ return {
 
   install = {
     repo = "WKDSteve/mdview.nvim",
-    version = "v0.4.3",
+    version = "v0.4.4",
   },
 
   dev = {
