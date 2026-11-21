@@ -1064,6 +1064,11 @@ local function tick()
   if not require("mdview.core.state").get_server() then
     return
   end
+  -- The relay has not announced its port yet (runner.lua): nothing to ask, and
+  -- a guess at the default port would reach a closed port or another relay.
+  if type(vim.g.mdview_server_port) ~= "number" then
+    return
+  end
   if vim.fn.executable("curl") ~= 1 then
     return
   end

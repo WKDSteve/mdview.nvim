@@ -39,6 +39,11 @@ local DEFAULT_PORT = 43219
 -- relay still opens in well under a second; only a slow start waits.
 M.WAIT_READY_TIMEOUT = M.WAIT_READY_TIMEOUT or 15000
 
+-- How often wait_ready looks whether the relay has announced its port yet
+-- (vim.g.mdview_server_port, set by the runner from the relay's first line).
+-- A timer tick, no process: short, so readiness is not delayed by a poll period.
+M.PORT_WAIT_MS = 20
+
 --- Timing against the relay process, as one `transport` block rather than
 --- four separate keys: they are one decision -- how patient to be with a
 --- relay that is slow to answer -- and tuning one without the others is how
@@ -153,12 +158,34 @@ function M.wait_ready(cb, timeout_ms)
   local start_time = uv.now()
   local attempt = 0
 
+  local poll
+
+  ---@internal
+  ---@param delay_ms integer
+  ---@return nil
+  local function again_or_give_up(delay_ms)
+    if (uv.now() - start_time) < timeout then
+      vim.defer_fn(poll, delay_ms)
+    else
+      notify("[mdview] server health-check timed out after " .. tostring(timeout) .. "ms", vim.log.levels.ERROR)
+      cb(false)
+    end
+  end
+
   ---@internal
   ---@return nil
-  local function poll()
+  poll = function()
+    -- Until the relay printed its port (runner.lua) there is nothing to ask: a
+    -- guess at the default port reaches a closed port -- a refused connect
+    -- costs ~2 s per curl on Windows -- or the relay of another instance.
+    -- Waiting costs a timer, no process; a missing curl still fails at once.
+    local port = vim.g.mdview_server_port
+    if type(port) ~= "number" and fn.executable("curl") == 1 then
+      again_or_give_up(M.PORT_WAIT_MS)
+      return
+    end
     attempt = attempt + 1
-    local port = vim.g.mdview_server_port or DEFAULT_PORT
-    local url = health_url(port)
+    local url = health_url(port or DEFAULT_PORT)
 
     http_get(url, function(code, err)
       if err then
@@ -174,16 +201,10 @@ function M.wait_ready(cb, timeout_ms)
         )
         cb(true)
       else
-        if (uv.now() - start_time) < timeout then
-          -- optionally log every N attempts
-          if attempt % 10 == 0 then
-            notify(string.format("[mdview] waiting for server, attempt %d...", attempt), vim.log.levels.INFO)
-          end
-          vim.defer_fn(poll, tcfg.health_poll_ms)
-        else
-          notify("[mdview] server health-check timed out after " .. tostring(timeout) .. "ms", vim.log.levels.ERROR)
-          cb(false)
+        if attempt % 10 == 0 and (uv.now() - start_time) < timeout then
+          notify(string.format("[mdview] waiting for server, attempt %d...", attempt), vim.log.levels.INFO)
         end
+        again_or_give_up(tcfg.health_poll_ms)
       end
     end)
   end

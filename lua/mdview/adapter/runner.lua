@@ -86,6 +86,10 @@ function M.start_server(cmd, args, cwd)
   -- over a not-yet-declared `handle`, and its `handle:close()` on exit
   -- silently no-ops on the wrong variable instead of closing the real handle.
   local handle, pid, err
+  -- The port of an earlier relay means nothing for this one: it is the relay's
+  -- to announce (stdout, below). Until then the health poll and the inbound
+  -- poll wait instead of asking a port that may be closed or another relay's.
+  vim.g.mdview_server_port = nil
   -- luv's meta declares every uv.spawn option required (uid, gid, verbatim,
   -- hide and, here, the ones already set below), which no real caller passes.
   ---@diagnostic disable-next-line: missing-fields
