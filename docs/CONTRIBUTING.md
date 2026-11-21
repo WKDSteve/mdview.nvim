@@ -31,8 +31,10 @@ overrides are only for a build kept somewhere else.
   the Rust/WASM module, so untrusted input passes an allowlist before it can
   become DOM content. A convenience that renders a fragment in Go or in Lua
   gives that guarantee away, whatever it saves.
-- **The relay stays loopback-only.** It binds `127.0.0.1`/`localhost` and never
-  a routable interface. Every write endpoint requires the per-session token,
+- **The relay stays loopback-only.** It binds `127.0.0.1` and never
+  a routable interface; the plugin's own requests name `127.0.0.1` too
+  (`mdview.adapter.relay_url`), since a `localhost` URL makes curl try `::1`
+  first, which costs ~200 ms per request on Windows. Every write endpoint requires the per-session token,
   compared in constant time; WebSocket upgrades require an exact `Origin`
   match. An empty expected token must never validate — a misconfigured session
   fails closed. See [`FEATURES/SECURITY.md`](FEATURES/SECURITY.md) before

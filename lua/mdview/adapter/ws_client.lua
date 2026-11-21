@@ -15,6 +15,7 @@ local uv = vim.uv or vim.loop
 local normalize = require("mdview.helper.normalize")
 local log = require("mdview.helper.log")
 local shared_relay = require("mdview.adapter.shared_relay")
+local relay_url = require("mdview.adapter.relay_url")
 local retry_backoff = require("lib.nvim.patterns.retry_backoff")
 
 -- Unlike config/init.lua's and init.lua's plain `create("")` (no popup,
@@ -97,7 +98,7 @@ end
 ---@param port integer
 ---@return string
 local function health_url(port)
-  return string.format("http://localhost:%d/health", port)
+  return relay_url.base(port) .. "/health"
 end
 
 -- curl is a hard dependency (docs/installation.md); there is no transport
@@ -203,7 +204,7 @@ local function endpoint_url_for(endpoint, path)
   local token = require("mdview.core.state").get_token() or ""
   -- On a shared relay every request names this instance: a heartbeat, and for
   -- /update and /doc the claim on the room (see mdview.adapter.shared_relay).
-  return string.format("http://localhost:%d/%s?key=%s&token=%s", port, endpoint, normalized, vim.uri_encode(token))
+  return string.format("%s/%s?key=%s&token=%s", relay_url.base(port), endpoint, normalized, vim.uri_encode(token))
     .. shared_relay.client_param()
 end
 
@@ -799,7 +800,7 @@ function M.send_spotlight(json, cb)
   end
   local port = vim.g.mdview_server_port or DEFAULT_PORT
   local token = require("mdview.core.state").get_token() or ""
-  local url = string.format("http://localhost:%d/spotlight?token=%s", port, vim.uri_encode(token))
+  local url = relay_url.base(port) .. "/spotlight?token=" .. vim.uri_encode(token)
   http_post_nonblocking(url, json, function(code, stdout_lines, stderr_lines)
     if code == 0 and not stdout_lines then
       cb(true, nil)
@@ -832,7 +833,7 @@ function M.send_keys(json, cb)
   end
   local port = vim.g.mdview_server_port or DEFAULT_PORT
   local token = require("mdview.core.state").get_token() or ""
-  local url = string.format("http://localhost:%d/keys?token=%s", port, vim.uri_encode(token))
+  local url = relay_url.base(port) .. "/keys?token=" .. vim.uri_encode(token)
   lane_post("keys", {
     url = url,
     body = json,
@@ -866,7 +867,7 @@ function M.send_close()
   end
   local port = vim.g.mdview_server_port or DEFAULT_PORT
   local token = require("mdview.core.state").get_token() or ""
-  local url = string.format("http://localhost:%d/close?token=%s", port, vim.uri_encode(token))
+  local url = relay_url.base(port) .. "/close?token=" .. vim.uri_encode(token)
   pcall(fn.system, { "curl", "-sS", "--max-time", "1", "-X", "POST", url })
 end
 
@@ -906,7 +907,7 @@ function M.tab_rooms(cb)
     return
   end
   local port = vim.g.mdview_server_port or DEFAULT_PORT
-  local url = string.format("http://localhost:%d/attach?token=%s", port, vim.uri_encode(token))
+  local url = relay_url.base(port) .. "/attach?token=" .. vim.uri_encode(token)
   local out = {}
   local ok, jid = pcall(fn.jobstart, { "curl", "-sS", "--max-time", "2", url }, {
     stdout_buffered = true,

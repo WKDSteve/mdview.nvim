@@ -119,8 +119,8 @@ end
 ---@param token string
 ---@return string
 local function attach_url(port, token)
-  return ("http://localhost:%d/attach?token=%s&client=%s"):format(
-    port,
+  return ("%s/attach?token=%s&client=%s"):format(
+    require("mdview.adapter.relay_url").base(port),
     vim.uri_encode(token),
     vim.uri_encode(M.client_id())
   )
@@ -417,8 +417,8 @@ function M.detach()
   if type(token) ~= "string" or type(port) ~= "number" or vim.fn.executable("curl") ~= 1 then
     return
   end
-  local url = ("http://localhost:%d/detach?token=%s&client=%s"):format(
-    port,
+  local url = ("%s/detach?token=%s&client=%s"):format(
+    require("mdview.adapter.relay_url").base(port),
     vim.uri_encode(token),
     vim.uri_encode(M.client_id())
   )
