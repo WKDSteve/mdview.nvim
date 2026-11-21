@@ -29,19 +29,23 @@ local function has_exe(cmd)
   return fn.executable(cmd) == 1
 end
 
--- Synchronous localhost GET (diagnostics run on demand, blocking is fine).
+-- Synchronous GET to the relay (diagnostics run on demand, a short wait is
+-- fine) over a loopback connection (mdview.adapter.relay_http), not a curl
+-- process: on Windows the process start alone blocked the report for up to
+-- 1.7 s under load.
 ---@internal
----@param url string
+---@param port integer
+---@param target string # path and query
 ---@return string # trimmed body or an error marker
-local function curl_get(url)
-  if not has_exe("curl") then
-    return "(curl not found)"
+local function relay_get(port, target)
+  local ok, body, err = pcall(require("mdview.adapter.relay_http").request_sync, port, "GET", target, 2000)
+  if not ok then
+    return "(request failed: " .. tostring(body) .. ")"
   end
-  local out = fn.system({ "curl", "-sS", "--max-time", "2", url })
-  if vim.v.shell_error ~= 0 then
-    return ("(curl failed, exit %d)"):format(vim.v.shell_error)
+  if not body then
+    return "(no answer: " .. tostring(err) .. ")"
   end
-  return (out:gsub("%s+$", ""))
+  return (body:gsub("%s+$", ""))
 end
 
 --- Build the diagnostics report as a list of lines.
@@ -127,7 +131,7 @@ function M.collect()
   local port = vim.g.mdview_server_port or defaults.server_port
   kv(lines, "detected port", port)
   if running then
-    kv(lines, "GET /health", curl_get(("http://127.0.0.1:%d/health"):format(port)))
+    kv(lines, "GET /health", relay_get(port, "/health"))
   end
 
   section("Active transport (browser <-> relay)")

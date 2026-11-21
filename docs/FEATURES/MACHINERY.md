@@ -11,6 +11,20 @@ beside it in [`README.md`](README.md) do.
 that would mean one `curl /health` per keystroke. `M._ready` remembers a server
 once it has been seen healthy; `M.reset_ready()` drops that on stop/respawn.
 
+Until then, every caller joins **one** health poll (a list of waiters, each with
+its own timeout), and that poll asks nothing before the relay has announced its
+port: the runner clears `vim.g.mdview_server_port` when it spawns a relay and
+sets it from the relay's first line. A guess at the default port 43219 used to
+reach a closed port (a refused connect costs ~2 s per curl on Windows) or
+another instance's relay. The inbound poll waits the same way.
+
+Every request to the relay names `127.0.0.1` (`adapter/relay_url.lua`): with
+`localhost` curl tries `::1` first, ~200 ms per request on Windows. The requests
+that must finish before the caller goes on (`/close`, `/detach`, the shared
+`/attach` probe, the `/health` line of `:checkhealth` and `:MDView diagnose`)
+use a plain loopback connection (`adapter/relay_http.lua`) instead of a curl
+process, whose start alone blocks the editor for 150-450 ms on Windows.
+
 - **Module:** `lua/mdview/adapter/ws_client.lua` (`wait_ready`, `reset_ready`, `_ready`)
 - **Why:** the missing `cb(true)` is what made the need for a cache visible in
   the first place.

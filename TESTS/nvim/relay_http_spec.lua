@@ -194,3 +194,63 @@ describe("the requests that must finish first start no process", function()
     assert(relay.requests[1]:find("^GET /attach%?token=spec%-token&client="), relay.requests[1])
   end)
 end)
+
+describe("the on-demand reports ask /health without a process", function()
+  --- Run `fn` with a session that looks running.
+  local function with_running_session(fn)
+    local state = require("mdview.core.state")
+    local prev = state.get_proc()
+    state.set_proc({ handle = {
+      is_closing = function()
+        return false
+      end,
+    } })
+    local ok, err = pcall(fn)
+    state.set_proc(prev)
+    if not ok then
+      error(err, 0)
+    end
+  end
+
+  it(":checkhealth mdview reports the relay healthy @network", function()
+    local relay = fixture(ok_answer("ok\n"))
+    local oks = {}
+    without_processes(relay.port, function()
+      with_running_session(function()
+        local orig_ok, orig_warn = vim.health.ok, vim.health.warn
+        vim.health.ok = function(msg)
+          oks[#oks + 1] = msg
+        end
+        vim.health.warn = function() end
+        package.loaded["mdview.health"] = nil
+        local fine, err = pcall(require("mdview.health").check)
+        package.loaded["mdview.health"] = nil
+        vim.health.ok, vim.health.warn = orig_ok, orig_warn
+        assert(fine, err)
+      end)
+    end)
+    relay.close()
+    local want = ("relay running on port %d and healthy (GET /health = ok)"):format(relay.port)
+    assert(vim.tbl_contains(oks, want), "expected '" .. want .. "' in " .. vim.inspect(oks))
+    assert.are.equal(1, #relay.requests)
+  end)
+
+  it(":MDView diagnose reports the /health answer @network", function()
+    local relay = fixture(ok_answer("ok\n"))
+    local lines
+    without_processes(relay.port, function()
+      with_running_session(function()
+        lines = require("mdview.diagnostics").collect()
+      end)
+    end)
+    relay.close()
+    local found = false
+    for _, l in ipairs(lines) do
+      if l:find("GET /health", 1, true) and l:find("ok", 1, true) and not l:find("(", 1, true) then
+        found = true
+      end
+    end
+    assert(found, "no 'GET /health ... ok' line in " .. vim.inspect(lines))
+    assert.are.equal(1, #relay.requests)
+  end)
+end)

@@ -31,23 +31,23 @@ describe("health.check", function()
 
   it("completes without erroring when a session looks like it's running", function()
     -- Force M.proc_is_running() true without a real spawned process, and
-    -- stub vim.fn.system (a Neovim global, not a require() upvalue -- no
-    -- package.loaded gymnastics needed) so the /health probe this branch
-    -- takes can't shell out to a real curl subprocess.
+    -- stub the relay request (relay_http.request_sync, looked up on every
+    -- call) so the /health probe this branch takes never opens a connection.
     local prev_proc = state.get_proc()
     state.set_proc({ handle = {
       is_closing = function()
         return false
       end,
     } })
-    local orig_system = vim.fn.system
-    vim.fn.system = function()
+    local relay_http = require("mdview.adapter.relay_http")
+    local orig_request = relay_http.request_sync
+    relay_http.request_sync = function()
       return "ok"
     end
 
     local ok, err = pcall(health.check)
 
-    vim.fn.system = orig_system
+    relay_http.request_sync = orig_request
     state.set_proc(prev_proc)
 
     assert.is_true(ok, "health.check() must not throw with a (faked) running session -- got: " .. tostring(err))

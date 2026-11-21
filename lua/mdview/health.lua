@@ -195,11 +195,10 @@ function M.check()
   local state = require("mdview.core.state")
   if state.proc_is_running() then
     local port = vim.g.mdview_server_port or defaults.server_port
-    local body
-    if executable("curl") then
-      body = vim.fn.system({ "curl", "-sS", "--max-time", "2", ("http://127.0.0.1:%d/health"):format(port) })
-      body = (body or ""):gsub("%s+$", "")
-    end
+    -- Over a loopback connection, not a curl process: the process start alone
+    -- held :checkhealth for 50-350 ms on Windows (mdview.adapter.relay_http).
+    local fine, answer = pcall(require("mdview.adapter.relay_http").request_sync, port, "GET", "/health", 2000)
+    local body = (fine and type(answer) == "string") and (answer:gsub("%s+$", "")) or nil
     if body == "ok" then
       ok(("relay running on port %d and healthy (GET /health = ok)"):format(port))
     else
