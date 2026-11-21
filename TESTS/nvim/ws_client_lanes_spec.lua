@@ -45,15 +45,9 @@ local started
 ---@return string url, string body
 local function url_and_body(cmd)
   local url, body = "", ""
-  for i, part in ipairs(cmd) do
+  for _, part in ipairs(cmd) do
     if type(part) == "string" and part:match("^http://") then
       url = part
-    elseif part == "--data-binary" and cmd[i + 1] ~= "@-" then
-      local f = io.open(cmd[i + 1]:sub(2), "rb")
-      if f then
-        body = f:read("*a")
-        f:close()
-      end
     end
   end
   return url, body
@@ -332,6 +326,17 @@ describe("ws_client keys lane (keycast)", function()
     assert.truthy(joined:find("--max-time " .. ws.KEYS_MAX_TIME_S, 1, true), joined)
     assert.are.equal('{"text":":w<CR>"}', started[1].body)
     assert.are.equal("stdin", started[1].closed)
+  end)
+
+  it("no POST puts its body into a temp file: every one reads curl's stdin", function()
+    ws.send_keys('{"text":"x"}')
+    ws.send_control("room", '{"selection":false}')
+    for _, job in ipairs(started) do
+      local joined = table.concat(job.cmd, " ")
+      assert.truthy(joined:find("--data-binary @- ", 1, true), joined)
+      assert.is_nil(joined:find("@[A-Za-z]:") or joined:find("@/"), joined)
+      assert.are.equal("stdin", job.closed)
+    end
   end)
 
   it("reports the outcome of a batch: ok, or the relay's answer", function()

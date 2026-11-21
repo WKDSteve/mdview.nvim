@@ -117,13 +117,13 @@ local function with_failing_jobstart(start, fn)
   end
 end
 
---- The temp file a POST's argv points curl at (`--data-binary @<file>`).
+--- The argument after `--data-binary` in a POST's argv: `@-` (stdin) when nothing goes through a file.
 ---@param argv string[]
 ---@return string
-local function body_file_of(argv)
+local function body_source_of(argv)
   for i, a in ipairs(argv) do
     if a == "--data-binary" then
-      return argv[i + 1]:sub(2)
+      return argv[i + 1]
     end
   end
   error("no --data-binary in " .. vim.inspect(argv))
@@ -153,7 +153,7 @@ describe("ws_client.send_spotlight when curl cannot be started", function()
         assert.is_false(got[1])
         assert(tostring(got[2]):find("could not start curl", 1, true), "unexpected detail: " .. tostring(got[2]))
         assert.are.equal(1, #args)
-        assert.is_nil(vim.uv.fs_stat(body_file_of(args[1])), "the body's temp file must not be left behind")
+        assert.are.equal("@-", body_source_of(args[1]), "the body goes over stdin, not into a file")
       end)
     end)
   end
@@ -183,5 +183,72 @@ describe("ws_client.wait_ready when curl cannot be started", function()
       assert.is_false(result)
       assert.is_false(ws._ready)
     end)
+  end)
+end)
+
+describe("ws_client POST body over stdin, real curl", function()
+  it("a body of several MB arrives whole, with no temp file made", function()
+    if vim.fn.executable("curl") ~= 1 then
+      return pending("curl is not installed")
+    end
+    local uv = vim.uv
+    local size = 6 * 1024 * 1024
+    local body = string.rep("0123456789abcdef", size / 16)
+    local got = { bytes = 0 }
+
+    -- A relay stand-in that only counts what a POST carries.
+    local server = uv.new_tcp()
+    server:bind("127.0.0.1", 0)
+    server:listen(8, function()
+      local client = uv.new_tcp()
+      server:accept(client)
+      local head, length, seen, answered = "", nil, 0, false
+      client:read_start(function(err, chunk)
+        if err or not chunk then
+          return
+        end
+        if not length then
+          head = head .. chunk
+          local at = head:find("\r\n\r\n", 1, true)
+          if not at then
+            return
+          end
+          length = tonumber(head:match("[Cc]ontent%-[Ll]ength: (%d+)"))
+          chunk = head:sub(at + 4)
+          if head:lower():find("expect: 100-continue", 1, true) then
+            client:write("HTTP/1.1 100 Continue\r\n\r\n")
+          end
+        end
+        seen = seen + #chunk
+        if not answered and length and seen >= length then
+          answered = true
+          got.bytes, got.length = seen, length
+          client:write("HTTP/1.1 204 No Content\r\nConnection: close\r\n\r\n", function()
+            client:close()
+          end)
+        end
+      end)
+    end)
+    local port = server:getsockname().port
+
+    local before = #vim.fn.glob(vim.fn.fnamemodify(vim.fn.tempname(), ":h") .. "/*", false, true)
+    local saved_port = vim.g.mdview_server_port
+    vim.g.mdview_server_port = port
+    local result
+    ws.send_spotlight(body, function(ok, err)
+      result = { ok, err }
+    end)
+    local done = vim.wait(20000, function()
+      return result ~= nil
+    end, 20)
+    vim.g.mdview_server_port = saved_port
+    local after = #vim.fn.glob(vim.fn.fnamemodify(vim.fn.tempname(), ":h") .. "/*", false, true)
+    server:close()
+
+    assert.is_true(done, "no answer from curl")
+    assert.is_true(result[1], tostring(result[2]))
+    assert.are.equal(size, got.length)
+    assert.are.equal(size, got.bytes)
+    assert.is_true(after <= before + 1, "no new temp file per POST")
   end)
 end)

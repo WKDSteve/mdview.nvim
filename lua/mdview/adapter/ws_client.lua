@@ -262,9 +262,10 @@ end
 -- Helper: execute an HTTP POST using curl via jobstart.
 -- Callback signature: cb(exit_code:number, stdout_lines:string[]|nil, stderr_lines:string[]|nil)
 --
--- The body travels through a temp file and an argv list, never through a
--- shell: it is the user's buffer text, and a shell would run any `$(...)` or
--- backtick span in it. Without curl the POST fails explicitly (a missing tool
+-- The body travels over curl's stdin and an argv list, never through a shell and
+-- never through a file: it is the user's buffer text (possibly unsaved), and a
+-- shell would run any `$(...)` or backtick span in it, while a temp file would
+-- leave it on the disk (for good when curl hangs or Neovim dies). Without curl the POST fails explicitly (a missing tool
 -- is a failure, not a success with no response). The same goes for a curl that
 -- cannot be started (jobstart answers 0 or -1, or throws): no `on_exit` will ever
 -- come, so the callback is invoked right away with exit code JOBSTART_FAILED --
@@ -274,7 +275,7 @@ end
 ---@param url URL # target URL for the POST request
 ---@param body string # request body content
 ---@param cb fun(exit_code: integer, stdout_lines: string[]|nil, stderr_lines: string[]|nil)? # optional callback invoked on completion
----@param opts? { stdin?: boolean, max_time?: integer } # stdin: hand the body to curl on its stdin instead of a temp file (nothing of it touches the disk); max_time: curl's --max-time in seconds
+---@param opts? { max_time?: integer } # max_time: curl's --max-time in seconds
 ---@return integer|nil # job ID if curl was started, nil when it was not (cb has been called already)
 local function http_post_nonblocking(url, body, cb, opts)
   cb = cb or function() end
@@ -284,20 +285,10 @@ local function http_post_nonblocking(url, body, cb, opts)
     return nil
   end
 
-  local tmpf = nil
-  if not opts.stdin then
-    tmpf = fn.tempname()
-    local f = io.open(tmpf, "wb")
-    if f then
-      f:write(body)
-      f:close()
-    end
-  end
-
   local stdout_acc = {}
   local stderr_acc = {}
 
-  local args = { "-sS", "-X", "POST", url, "--data-binary", tmpf and ("@" .. tmpf) or "@-" }
+  local args = { "-sS", "-X", "POST", url, "--data-binary", "@-" }
   if opts.max_time then
     vim.list_extend(args, { "--max-time", tostring(opts.max_time) })
   end
@@ -324,26 +315,18 @@ local function http_post_nonblocking(url, body, cb, opts)
       end
     end,
     on_exit = function(_, code, _)
-      if tmpf then
-        pcall(os.remove, tmpf)
-      end
       -- pass collected stdout/stderr to callback
       cb(code, (#stdout_acc > 0) and stdout_acc or nil, (#stderr_acc > 0) and stderr_acc or nil)
     end,
   })
   if not ok_start or type(jid) ~= "number" or jid <= 0 then
-    if tmpf then
-      pcall(os.remove, tmpf)
-    end
     local reason = ok_start and ("jobstart returned " .. tostring(jid)) or tostring(jid)
     cb(JOBSTART_FAILED, nil, { "could not start curl: " .. reason })
     return nil
   end
-  if opts.stdin then
-    -- The body goes through the pipe; closing stdin is curl's end of input.
-    pcall(fn.chansend, jid, body)
-    pcall(fn.chanclose, jid, "stdin")
-  end
+  -- The body goes through the pipe; closing stdin is curl's end of input.
+  pcall(fn.chansend, jid, body)
+  pcall(fn.chanclose, jid, "stdin")
   return jid
 end
 
@@ -370,7 +353,6 @@ M.LANE_STALL_MS = M.LANE_STALL_MS or 5000
 ---@field supersedes boolean|nil # a full state: every entry queued before it is dropped
 ---@field merge_key string|nil # a queued entry with the same merge_key is dropped in favour of this one
 ---@field on_drop fun()|nil # called when the entry is dropped without being sent
----@field stdin boolean|nil # the body goes to curl's stdin, never into a temp file
 ---@field max_time integer|nil # curl --max-time, in seconds
 
 ---@class mdview.ws_client.Lane
@@ -417,7 +399,7 @@ local function lane_pump(name)
     if not ok then
       error(err, 0)
     end
-  end, { stdin = entry.stdin, max_time = entry.max_time })
+  end, { max_time = entry.max_time })
   if lane.token == token then
     vim.defer_fn(release, M.LANE_STALL_MS)
   end
@@ -855,7 +837,6 @@ function M.send_keys(json, cb)
     url = url,
     body = json,
     supersedes = true,
-    stdin = true,
     max_time = M.KEYS_MAX_TIME_S,
     cb = function(code, stdout_lines, stderr_lines)
       if code == 0 and not stdout_lines then
