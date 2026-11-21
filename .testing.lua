@@ -105,12 +105,6 @@ return {
       platform = { "relay", "suite", "conformance" },
       -- `testing ci land`: a check branch ci/** runs the hosted legs, main moves to a commit only once it is green there
       land = true,
-      env = {
-        -- macOS: the child sandbox lives below dirname(tempname()) of the runner, and from /var/folders/.../T a Unix
-        -- socket path of a sheet's child is longer than 104 bytes (seen in pickers.nvim). Linux uses /tmp anyway;
-        -- Windows reads TMP/TEMP.
-        TMPDIR = "/tmp",
-      },
     },
   },
 }
