@@ -89,9 +89,9 @@ return {
     default = "full",
     steps = {
       -- The feature sheets of the preview (TESTS/sheets/_relay.lua) run the relay of this checkout. Without a build
-      -- they are a reported skip, and CI counts the skip of a feature sheet as red. Go and Node come with the hosted
-      -- images; an older Go fetches the version of native/server/go.mod itself (GOTOOLCHAIN=auto).
-      relay = { run = { "node", "scripts/build-go.mjs" }, needs = { "go" }, timeout = "10m" },
+      -- they are a reported skip, and CI counts the skip of a feature sheet as red. Node and Go come with the hosted
+      -- images; the script finds the Go of the macOS image, which is not on PATH there.
+      relay = { run = { "scripts/relay-build.sh" }, needs = { "node" }, timeout = "10m" },
       ["workflow-in-sync"] = { preset = "workflow-in-sync" },
     },
     -- The GitHub workflow, generated: `testing init --workflow=public --force` writes .github/workflows/ci.yml from
