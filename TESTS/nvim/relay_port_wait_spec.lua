@@ -126,6 +126,84 @@ describe("ws_client.wait_ready before the relay announced its port", function()
   end)
 end)
 
+describe("ws_client.wait_ready with several callers at once", function()
+  it("shares one /health curl between them and answers each", function()
+    with_recorder(function(calls)
+      local ws = fresh("mdview.adapter.ws_client")
+      vim.g.mdview_server_port = nil
+      local results = {}
+      for i = 1, 4 do
+        ws.wait_ready(function(ok)
+          results[i] = ok
+        end, 5000)
+      end
+      vim.g.mdview_server_port = 43558
+      vim.wait(1000, function()
+        return #calls > 0
+      end, 10)
+      -- Give a second loop the time it would need to start its own curl.
+      vim.wait(100, function()
+        return false
+      end, 10)
+      assert.are.equal(1, #calls, "one /health curl for all callers, got " .. #calls)
+
+      calls[1].opts.on_exit(11, 0)
+      assert.are.same({ true, true, true, true }, results)
+    end)
+  end)
+
+  it("lets a caller with a shorter timeout give up alone", function()
+    with_recorder(function(calls)
+      local ws = fresh("mdview.adapter.ws_client")
+      vim.g.mdview_server_port = nil
+      local short, long = "pending", "pending"
+      ws.wait_ready(function(ok)
+        short = ok
+      end, 100)
+      ws.wait_ready(function(ok)
+        long = ok
+      end, 5000)
+      vim.wait(1000, function()
+        return short ~= "pending"
+      end, 10)
+      assert.is_false(short)
+      assert.are.equal("pending", long)
+
+      vim.g.mdview_server_port = 43559
+      vim.wait(1000, function()
+        return #calls > 0
+      end, 10)
+      assert.are.equal(1, #calls)
+      calls[1].opts.on_exit(11, 0)
+      assert.is_true(long)
+    end)
+  end)
+
+  it("starts a fresh poll for a caller that waits again from its callback", function()
+    with_recorder(function(calls)
+      local ws = fresh("mdview.adapter.ws_client")
+      vim.g.mdview_server_port = 43560
+      local second = "pending"
+      ws.wait_ready(function()
+        ws.reset_ready()
+        ws.wait_ready(function(ok)
+          second = ok
+        end, 5000)
+      end, 5000)
+      vim.wait(1000, function()
+        return #calls > 0
+      end, 10)
+      calls[1].opts.on_exit(11, 0)
+      vim.wait(1000, function()
+        return #calls > 1
+      end, 10)
+      assert.are.equal(2, #calls, "the second wait must poll again")
+      calls[2].opts.on_exit(12, 0)
+      assert.is_true(second)
+    end)
+  end)
+end)
+
 describe("runner.start_server", function()
   it("forgets the port of an earlier relay before it spawns the next one", function()
     with_recorder(function()

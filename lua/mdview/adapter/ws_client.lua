@@ -140,9 +140,113 @@ local function http_get(url, cb)
   end
 end
 
+-- Every caller of wait_ready waiting for the same relay shares ONE health poll:
+-- at startup the launcher, the live push, the spotlight mirror and the buffer
+-- switch each wait, and with a loop each they started a burst of /health curls
+-- the moment the port was known (7-9 process starts at once, each blocking the
+-- editor thread on Windows). `waiters` holds the callbacks, `polling` says a
+-- loop runs; the loop ends when the relay answers, curl is missing, or the last
+-- waiter's own timeout has passed.
+---@type { cb: fun(ok: boolean), deadline: integer, timeout: integer }[]
+local waiters = {}
+local polling = false
+
+--- Hand `ok` to every waiter, exactly once; the list is emptied first, so a
+--- waiter that calls wait_ready again starts a fresh poll, and one that throws
+--- does not cost the others their answer.
+---@param ok boolean
+---@return nil
+local function answer_all(ok)
+  local list = waiters
+  waiters = {}
+  polling = false
+  for _, w in ipairs(list) do
+    local fine, err = pcall(w.cb, ok)
+    if not fine then
+      log.debug("wait_ready callback failed: " .. tostring(err), nil, "ws_client", true)
+    end
+  end
+end
+
+--- Answer false to the waiters whose own timeout has passed.
+---@return nil
+local function expire()
+  local now = uv.now()
+  local kept, gone = {}, {}
+  for _, w in ipairs(waiters) do
+    if now >= w.deadline then
+      gone[#gone + 1] = w
+    else
+      kept[#kept + 1] = w
+    end
+  end
+  waiters = kept
+  for _, w in ipairs(gone) do
+    notify("[mdview] server health-check timed out after " .. tostring(w.timeout) .. "ms", vim.log.levels.ERROR)
+    pcall(w.cb, false)
+  end
+end
+
+--- The one health poll. Started by wait_ready when none runs.
+---@return nil
+local function run_poll()
+  local tcfg = transport()
+  local start_time = uv.now()
+  local attempt = 0
+  local poll
+
+  ---@param delay_ms integer
+  ---@return nil
+  local function again(delay_ms)
+    expire()
+    if #waiters == 0 then
+      polling = false
+      return
+    end
+    vim.defer_fn(poll, delay_ms)
+  end
+
+  poll = function()
+    -- Until the relay printed its port (runner.lua) there is nothing to ask: a
+    -- guess at the default port reaches a closed port -- a refused connect
+    -- costs ~2 s per curl on Windows -- or the relay of another instance.
+    -- Waiting costs a timer, no process; a missing curl still fails at once.
+    local port = vim.g.mdview_server_port
+    if type(port) ~= "number" and fn.executable("curl") == 1 then
+      again(M.PORT_WAIT_MS)
+      return
+    end
+    attempt = attempt + 1
+
+    http_get(health_url(port or DEFAULT_PORT), function(code, err)
+      if err then
+        notify("[mdview] server health-check impossible: " .. err, vim.log.levels.ERROR)
+        answer_all(false)
+      elseif code == 0 then
+        M._ready = true
+        log.debug(
+          string.format("server ready after %d ms, attempt %d", uv.now() - start_time, attempt),
+          nil,
+          "ws_client",
+          true
+        )
+        answer_all(true)
+      else
+        if attempt % 10 == 0 then
+          notify(string.format("[mdview] waiting for server, attempt %d...", attempt), vim.log.levels.INFO)
+        end
+        again(tcfg.health_poll_ms)
+      end
+    end)
+  end
+
+  poll()
+end
+
 --- Wait until server responds on /health or timeout, then call cb(true) /
 --- cb(false). Once the server has been seen healthy, later calls short-circuit
---- to cb(true) without another /health round trip (see M.reset_ready).
+--- to cb(true) without another /health round trip (see M.reset_ready). Callers
+--- waiting at the same time share one poll; each keeps its own timeout.
 ---@param cb fun(ok:boolean)
 ---@param timeout_ms integer|nil # explicit override; nil = `transport.health_timeout_ms`
 function M.wait_ready(cb, timeout_ms)
@@ -153,63 +257,13 @@ function M.wait_ready(cb, timeout_ms)
     return
   end
 
-  local tcfg = transport()
-  local timeout = timeout_ms or tcfg.health_timeout_ms
-  local start_time = uv.now()
-  local attempt = 0
-
-  local poll
-
-  ---@internal
-  ---@param delay_ms integer
-  ---@return nil
-  local function again_or_give_up(delay_ms)
-    if (uv.now() - start_time) < timeout then
-      vim.defer_fn(poll, delay_ms)
-    else
-      notify("[mdview] server health-check timed out after " .. tostring(timeout) .. "ms", vim.log.levels.ERROR)
-      cb(false)
-    end
+  local timeout = timeout_ms or transport().health_timeout_ms
+  waiters[#waiters + 1] = { cb = cb, deadline = uv.now() + timeout, timeout = timeout }
+  if polling then
+    return
   end
-
-  ---@internal
-  ---@return nil
-  poll = function()
-    -- Until the relay printed its port (runner.lua) there is nothing to ask: a
-    -- guess at the default port reaches a closed port -- a refused connect
-    -- costs ~2 s per curl on Windows -- or the relay of another instance.
-    -- Waiting costs a timer, no process; a missing curl still fails at once.
-    local port = vim.g.mdview_server_port
-    if type(port) ~= "number" and fn.executable("curl") == 1 then
-      again_or_give_up(M.PORT_WAIT_MS)
-      return
-    end
-    attempt = attempt + 1
-    local url = health_url(port or DEFAULT_PORT)
-
-    http_get(url, function(code, err)
-      if err then
-        notify("[mdview] server health-check impossible: " .. err, vim.log.levels.ERROR)
-        cb(false)
-      elseif code == 0 then
-        M._ready = true
-        log.debug(
-          string.format("server ready after %d ms, attempt %d", uv.now() - start_time, attempt),
-          nil,
-          "ws_client",
-          true
-        )
-        cb(true)
-      else
-        if attempt % 10 == 0 and (uv.now() - start_time) < timeout then
-          notify(string.format("[mdview] waiting for server, attempt %d...", attempt), vim.log.levels.INFO)
-        end
-        again_or_give_up(tcfg.health_poll_ms)
-      end
-    end)
-  end
-
-  poll()
+  polling = true
+  run_poll()
 end
 
 -- internal helper: construct a URL for an mdview-server endpoint,
