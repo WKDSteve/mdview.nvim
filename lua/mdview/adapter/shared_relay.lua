@@ -157,18 +157,20 @@ function M.read_discovery()
 end
 
 --- A short, blocking GET; the body, or nil when nothing answered. Replaced by
---- the specs.
----@param url string
+--- the specs. Over a loopback connection (relay_http), not a curl process:
+--- `:MDView start` waited 150-450 ms for the process start alone on Windows.
+---@param url string # an attach_url()
 ---@return string|nil
 function M._probe(url)
-  if vim.fn.executable("curl") ~= 1 then
+  local port, target = url:match("^http://[^/:]+:(%d+)(/.*)$")
+  if not port then
     return nil
   end
-  local ok, out = pcall(vim.fn.system, { "curl", "-sS", "--max-time", "1", url })
-  if not ok or vim.v.shell_error ~= 0 then
+  local ok, body = pcall(require("mdview.adapter.relay_http").request_sync, tonumber(port), "GET", target, 1000)
+  if not ok then
     return nil
   end
-  return out
+  return body
 end
 
 --- Find a running shared relay: the discovery file, confirmed by a short,
@@ -414,15 +416,13 @@ function M.detach()
   M._attached = false
   M._owner = false
   M._tabs = {}
-  if type(token) ~= "string" or type(port) ~= "number" or vim.fn.executable("curl") ~= 1 then
+  if type(token) ~= "string" or type(port) ~= "number" then
     return
   end
-  local url = ("%s/detach?token=%s&client=%s"):format(
-    require("mdview.adapter.relay_url").base(port),
-    vim.uri_encode(token),
-    vim.uri_encode(M.client_id())
-  )
-  pcall(vim.fn.system, { "curl", "-sS", "--max-time", "1", "-X", "POST", url })
+  -- A loopback connection, not a curl process: the process start alone froze
+  -- `:MDView stop` and quitting for 150-450 ms on Windows (relay_http).
+  local target = ("/detach?token=%s&client=%s"):format(vim.uri_encode(token), vim.uri_encode(M.client_id()))
+  pcall(require("mdview.adapter.relay_http").request_sync, port, "POST", target, 1000)
 end
 
 --- Register the takeover triggers in the session's augroup (no-op without a

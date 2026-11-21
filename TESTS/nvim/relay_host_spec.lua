@@ -5,7 +5,8 @@
 -- `::1` first, and on Windows the refused IPv6 connect costs ~200 ms before it
 -- falls back: each curl took ~210 ms instead of ~2 ms, and the blocking ones
 -- (:MDView stop's /close, the shared relay's /attach probe and /detach) froze
--- the editor that long (testing perf, 2026-11-19 and 2026-11-21).
+-- the editor that long (testing perf, 2026-11-19 and 2026-11-21). Those three no
+-- longer start curl at all: relay_http_spec.lua.
 --
 -- Each case calls one entry point with the process starters replaced by
 -- recorders (vim.fn.jobstart / vim.fn.system) and checks the URL in the argv.
@@ -121,16 +122,15 @@ describe("every relay request of the transport names 127.0.0.1", function()
     )
   end)
 
-  it("ws_client: /spotlight, /keys, /close and the /attach status", function()
+  it("ws_client: /spotlight, /keys and the /attach status", function()
     local ws = fresh("mdview.adapter.ws_client")
     assert_loopback_v4(
       recorded_urls(function()
         ws.send_spotlight('{"spots":[]}')
         ws.send_keys('{"text":"x"}')
-        ws.send_close()
         ws.tab_rooms(function() end)
       end),
-      "spotlight/keys/close/attach"
+      "spotlight/keys/attach"
     )
   end)
 
@@ -150,7 +150,7 @@ describe("every relay request of the transport names 127.0.0.1", function()
     assert_loopback_v4(urls, "inbound poll")
   end)
 
-  it("shared_relay: the /attach probe of discover() and /detach", function()
+  it("shared_relay: the /attach probe of discover()", function()
     local shared = fresh("mdview.adapter.shared_relay")
     shared.read_discovery = function()
       return { port = PORT, token = "spec-token" }
@@ -162,11 +162,9 @@ describe("every relay request of the transport names 127.0.0.1", function()
     end
     local urls = recorded_urls(function()
       shared.discover()
-      shared._attached = true
-      shared.detach()
     end)
     vim.list_extend(urls, probed)
-    assert.are.equal(2, #urls, "expected the probe and the detach, got " .. vim.inspect(urls))
+    assert.are.equal(1, #urls, "expected the probe, got " .. vim.inspect(urls))
     assert_loopback_v4(urls, "shared relay")
   end)
 end)

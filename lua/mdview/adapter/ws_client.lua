@@ -878,19 +878,31 @@ end
 --
 -- Intentionally BLOCKING with a short timeout: it runs right before the relay
 -- process is killed, so a fire-and-forget POST would race the shutdown and
--- usually lose. A brief synchronous curl guarantees the relay broadcasts the
--- signal before it dies. Best-effort — any failure is swallowed (the tab just
--- stays open, exactly as it did before this feature).
+-- usually lose. Waiting for the answer guarantees the relay broadcasts the
+-- signal before it dies. Over a plain loopback connection (relay_http), not a
+-- curl process: on Windows the process start alone froze `:MDView stop` for
+-- 150-450 ms, the request itself takes milliseconds. Best-effort -- any failure
+-- is swallowed (the tab just stays open, exactly as it did before this
+-- feature). Without an announced port there is no relay of this session to ask
+-- (a guess at the default port could close another instance's tabs).
 ---@return nil
 function M.send_close()
-  if fn.executable("curl") ~= 1 then
+  local port = vim.g.mdview_server_port
+  if type(port) ~= "number" then
     return
   end
-  local port = vim.g.mdview_server_port or DEFAULT_PORT
   local token = require("mdview.core.state").get_token() or ""
-  local url = relay_url.base(port) .. "/close?token=" .. vim.uri_encode(token)
-  pcall(fn.system, { "curl", "-sS", "--max-time", "1", "-X", "POST", url })
+  pcall(
+    require("mdview.adapter.relay_http").request_sync,
+    port,
+    "POST",
+    "/close?token=" .. vim.uri_encode(token),
+    M.CLOSE_TIMEOUT_MS
+  )
 end
+
+-- How long send_close waits for the relay (it was curl's --max-time 1).
+M.CLOSE_TIMEOUT_MS = 1000
 
 --- Decode the `tabs` list of a relay status answer (GET /attach); nil when the
 --- body is no such answer.
