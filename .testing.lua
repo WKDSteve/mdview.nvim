@@ -79,4 +79,38 @@ return {
   },
   -- gated: a failed conformance check makes `scripts/test.sh conformance` exit 1 (docs/CONFORMANCE.md of testing.nvim)
   conformance = { gate = true },
+  ci = {
+    -- Written as profiles because the relay has to be built before the suite: a step of its own would join `full`
+    -- after it. Otherwise the derived pipeline (stylua, luacheck, suite, conformance) unchanged.
+    profiles = {
+      fast = { "stylua", "luacheck" },
+      full = { "fast", "relay", "suite", "conformance", "workflow-in-sync" },
+    },
+    default = "full",
+    steps = {
+      -- The feature sheets of the preview (TESTS/sheets/_relay.lua) run the relay of this checkout. Without a build
+      -- they are a reported skip, and CI counts the skip of a feature sheet as red. Go and Node come with the hosted
+      -- images; an older Go fetches the version of native/server/go.mod itself (GOTOOLCHAIN=auto).
+      relay = { run = { "node", "scripts/build-go.mjs" }, needs = { "go" }, timeout = "10m" },
+      ["workflow-in-sync"] = { preset = "workflow-in-sync" },
+    },
+    -- The GitHub workflow, generated: `testing init --workflow=public --force` writes .github/workflows/ci.yml from
+    -- this (testing.nvim docs/WORKFLOW-CI.md); the step workflow-in-sync keeps the two together. The Rust, Node, Go
+    -- and browser checks and the release on a tag `v*` are hand-written in .github/workflows/native.yml: the
+    -- generator has no Go/Rust setup and no tag trigger, and `testing ci land` waits for ci.yml only.
+    workflow = {
+      name = "mdview.nvim",
+      layout = "hosted",
+      -- the steps that depend on the platform: the windows and macOS legs run only these (the relay is built per leg)
+      platform = { "relay", "suite", "conformance" },
+      -- `testing ci land`: a check branch ci/** runs the hosted legs, main moves to a commit only once it is green there
+      land = true,
+      env = {
+        -- macOS: the child sandbox lives below dirname(tempname()) of the runner, and from /var/folders/.../T a Unix
+        -- socket path of a sheet's child is longer than 104 bytes (seen in pickers.nvim). Linux uses /tmp anyway;
+        -- Windows reads TMP/TEMP.
+        TMPDIR = "/tmp",
+      },
+    },
+  },
 }
