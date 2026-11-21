@@ -418,3 +418,91 @@ describe("mdview.open with render", function()
     assert.is_false(generated.is(buf))
   end)
 end)
+
+describe("mdview.open of a generated view is idempotent", function()
+  local buf, browser, orig_open, orig_tab_rooms, tabs_answer, opened
+  local ROOM = "C:/some/other/doc.md"
+
+  before_each(function()
+    install()
+    buf = scratch()
+    browser = require("mdview.adapter.browser")
+    orig_open, orig_tab_rooms = browser.open, ws.tab_rooms
+    opened = {}
+    browser.open = function(url)
+      opened[#opened + 1] = url
+      return { handle = true }
+    end
+    -- The fake relay's answer to "which rooms have a tab": synchronous.
+    ws.tab_rooms = function(cb)
+      cb(tabs_answer)
+    end
+    state.set_attached(true)
+    state.get_server = function()
+      return {}
+    end
+  end)
+  after_each(function()
+    browser.open, ws.tab_rooms = orig_open, orig_tab_rooms
+    restore()
+    pcall(vim.api.nvim_buf_delete, buf, { force = true })
+  end)
+
+  it("opens a tab when no tab watches the view", function()
+    tabs_answer = {}
+    assert.is_true(mdview.open({ bufnr = buf, name = NAME, render = render }))
+    assert.are.equal(1, #opened)
+  end)
+
+  it("opens a tab when the relay does not say which tabs there are", function()
+    tabs_answer = nil
+    mdview.open({ bufnr = buf, name = NAME, render = render })
+    assert.are.equal(1, #opened)
+  end)
+
+  it("only pushes again when a tab already watches the view's room (tab per document)", function()
+    config.defaults.browser.behavior = "new_tab"
+    tabs_answer = { NAME }
+    assert.is_true(mdview.open({ bufnr = buf, name = NAME, render = render }))
+    assert.are.equal(0, #opened, "no second tab")
+    assert.is_true(settle(function()
+      return #sent > 0
+    end))
+    assert.are.equal(NAME, sent[#sent].target)
+    assert.is_true(sent[#sent].full)
+  end)
+
+  it("still opens a tab in new_tab mode when only another room has one", function()
+    config.defaults.browser.behavior = "new_tab"
+    tabs_answer = { ROOM }
+    mdview.open({ bufnr = buf, name = NAME, render = render })
+    assert.are.equal(1, #opened)
+  end)
+
+  it("under reuse brings the view into the one open tab, which showed another document", function()
+    state.set_preview_key(ROOM)
+    tabs_answer = { ROOM }
+    mdview.open({ bufnr = buf, name = NAME, render = render })
+    assert.are.equal(0, #opened, "no second tab")
+    assert.are.equal(ROOM, state.get_preview_key(), "the room stays the tab's own")
+    assert.is_true(settle(function()
+      return #sent > 0
+    end))
+    assert.are.equal(ROOM, sent[#sent].target)
+    assert.are.equal("- [12:00:01 INFO start](entry/1)", sent[#sent].lines[3])
+    assert.are.equal(NAME, docs[#docs].path, "the tab is told which document it shows now")
+  end)
+
+  it("under reuse takes the tab for a view that is not the current buffer", function()
+    state.set_preview_key(ROOM)
+    tabs_answer = { ROOM }
+    local other = scratch()
+    vim.api.nvim_set_current_buf(other)
+    mdview.open({ bufnr = buf, name = NAME, render = render })
+    assert.is_true(settle(function()
+      return #sent > 0
+    end))
+    assert.are.equal(ROOM, sent[#sent].target)
+    pcall(vim.api.nvim_buf_delete, other, { force = true })
+  end)
+end)

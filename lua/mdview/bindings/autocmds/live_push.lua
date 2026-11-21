@@ -96,7 +96,7 @@ M._cancel_pending = cancel_pending -- exposed for teardown (bindings/autocmds/in
 -- ws_client.send_content. Pass { full = true } to force a full snapshot (e.g.
 -- on save or when seeding a freshly opened tab).
 ---@param bufnr integer
----@param opts { full?: boolean, reason?: string, room?: string }|nil # room: push to this room instead of the current one; reason: "edit"|"save"|"switch"|"enable"|"refresh" (for the display transform)
+---@param opts { full?: boolean, reason?: string, room?: string, explicit?: boolean }|nil # explicit: an `open` of a generated view asked for this push, so the background guard does not hold it back; room: push to this room instead of the current one; reason: "edit"|"save"|"switch"|"enable"|"refresh" (for the display transform)
 function M.push_buffer_changes(bufnr, opts)
   if not previewable.is(bufnr) then
     log.debug("skipping buffer, not previewable", nil, "livepush", true)
@@ -138,7 +138,7 @@ function M.push_buffer_changes(bufnr, opts)
   -- works elsewhere) must not take the tab of "reuse" away from the document it
   -- shows now.
   local generated = require("mdview.core.generated")
-  if generated.is(bufnr) and not generated.may_push(bufnr, target) then
+  if generated.is(bufnr) and not (opts and opts.explicit) and not generated.may_push(bufnr, target) then
     log.debug("skipping generated view in the background, room shows another document", nil, "livepush", true)
     return
   end

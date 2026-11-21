@@ -45,8 +45,18 @@ Markdown extension, a name another view has) is reported and returns `false`;
   preview at the view and opens a browser tab, like `:MDView open`. Without one,
   and the view is the current buffer, `open` starts the session for it. Without
   one for a buffer in the background, `open` registers the view and says that no
-  session runs; the next `:MDView start` from that buffer shows it. Every
-  `open` opens a tab, as `:MDView open` does: open once, then `refresh`.
+  session runs; the next `:MDView start` from that buffer shows it.
+- **Idempotent `open`.** `open` of a view asks the relay which rooms have a tab
+  and opens a further one only when it has to, so an owner may simply call
+  `open` whenever it wants "show this view": with `browser.behavior = "reuse"`
+  (the default) and the one tab open, the view is pushed into that tab, even
+  when it shows another document right now (and also when the view is not the
+  current buffer: an explicit `open` is a request to show it); with one tab per
+  document, a tab that already watches the view's room is only brought up to
+  date. No tab, or a relay that does not answer, opens one as before. Because
+  the relay is asked, `open` returns `true` once the request is made; a browser
+  that then cannot start is reported, not returned. `:MDView open` of a file
+  keeps opening a tab every time.
 - **Text.** Every route that sends preview text (live push, buffer switch,
   initial push, display language) asks `render(bufnr)` instead of reading the
   buffer. The display transform (`browser.transform`, `browser.display_lang`)

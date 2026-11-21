@@ -25,6 +25,10 @@ local notify = require("lib.nvim.notify").create("").notify
 
 local M = {}
 
+local ws_client = require("mdview.adapter.ws_client")
+-- Defined below `M.open`, which hands over to them.
+local open_tab, open_view
+
 M.config = cfg.defaults
 
 ---@param opts table|nil supports nested overrides, e.g. { browser = { browser = "firefox" } }
@@ -118,6 +122,25 @@ function M.open(opts)
     return false
   end
 
+  if opts.render ~= nil or require("mdview.core.generated").is(buf) then
+    -- A generated view is opened idempotently: an open tab that already shows it
+    -- (or, under "reuse", the one tab) is used instead of a further one. Which
+    -- tabs are open is the relay's to say, so the rest happens in its answer.
+    ws_client.tab_rooms(function(tabs)
+      open_view(buf, key, opts, tabs)
+    end)
+    return true
+  end
+
+  return open_tab(buf, key, opts)
+end
+
+--- Opens a browser tab for `buf`'s room `key` and seeds it (the tail of `M.open`).
+---@param buf integer
+---@param key string
+---@param opts MDView.OpenOpts
+---@return boolean ok
+function open_tab(buf, key, opts)
   -- This tab will watch `key`'s room; record it before seeding so the seed
   -- (and, in "reuse" behavior, later live pushes) route to this room.
   state.set_preview_key(key)
@@ -159,6 +182,45 @@ function M.open(opts)
 
   notify(("[mdview] failed to open browser: %s"):format(tostring(handle_or_err)), vim.log.levels.ERROR)
   return false
+end
+
+--- Decides, once the relay told which rooms have a tab (`tabs`, nil when it did
+--- not say), whether `open` of a generated view needs a tab of its own.
+---
+---   * a tab already watches the view's room (`browser.behavior` other than
+---     "reuse"): the view is only pushed again;
+---   * "reuse" and the one tab is open: the view is brought into that tab, even
+---     when it shows another document right now (the room stays the tab's own);
+---   * otherwise (no tab, or the relay did not answer): a tab is opened.
+---@param buf integer
+---@param key string
+---@param opts MDView.OpenOpts
+---@param tabs string[]|nil
+---@return nil
+function open_view(buf, key, opts, tabs)
+  if not vim.api.nvim_buf_is_valid(buf) or not state.is_attached() or not state.get_server() then
+    return
+  end
+  local room
+  if tabs then
+    local reuse = (require("mdview.config.browser").defaults.behavior or "reuse") == "reuse"
+    local current = state.get_preview_key()
+    if reuse then
+      if current and vim.tbl_contains(tabs, current) then
+        room = current
+      end
+    elseif vim.tbl_contains(tabs, key) then
+      room = key
+    end
+  end
+  if not room then
+    open_tab(buf, key, opts)
+    return
+  end
+  state.set_preview_key(room)
+  require("mdview.core.pin").follow(buf)
+  pcall(require("mdview.bindings.autocmds.live_push").push_buffer_changes, buf, { full = true, explicit = true })
+  notify("[mdview] the view is already open in a tab: " .. key, vim.log.levels.INFO)
 end
 
 --- Push a generated view again (see `M.open` with `render`): for changes its
