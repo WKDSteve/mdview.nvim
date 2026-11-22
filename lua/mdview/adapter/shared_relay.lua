@@ -146,14 +146,26 @@ function M.parse_status(body)
   return st, nil
 end
 
---- Read the discovery file.
----@return { port: integer, token: string }|nil
+--- Read the discovery file. `pid` is the relay's process (nil when the file
+--- names none).
+---@return { port: integer, token: string, pid: integer|nil }|nil
 function M.read_discovery()
   local d = require("lib.nvim.fs.json").read(M.discovery_path())
   if type(d) ~= "table" or type(d.port) ~= "number" or type(d.token) ~= "string" or d.token == "" then
     return nil
   end
-  return { port = d.port, token = d.token }
+  local pid = (type(d.pid) == "number" and d.pid > 0) and d.pid or nil
+  return { port = d.port, token = d.token, pid = pid }
+end
+
+--- Whether process `pid` still runs (signal 0, nothing is sent). One this
+--- process may not signal (EPERM: another user's) counts as running. Replaced
+--- by the specs.
+---@param pid integer
+---@return boolean
+function M._pid_alive(pid)
+  local rc, _, name = uv.kill(pid, 0)
+  return rc == 0 or name == "EPERM"
 end
 
 --- A short, blocking GET; the body, or nil when nothing answered. Replaced by
@@ -176,11 +188,19 @@ end
 --- Find a running shared relay: the discovery file, confirmed by a short,
 --- blocking `GET /attach` (a stale file -- relay gone, or another process on
 --- the port -- is ignored; the relay spawned next replaces it).
+---
+--- A file whose relay process is gone is stale without asking its port: a
+--- crashed relay leaves the file behind, and a program that took the port
+--- since and never answers held `:MDView start` for the probe's whole limit
+--- (1 s). A pid that still runs (or was reused) is probed as before.
 ---@return { port: integer, token: string, status: table }|nil info, string|nil why
 function M.discover()
   local d = M.read_discovery()
   if not d then
     return nil, "no discovery file"
+  end
+  if d.pid and not M._pid_alive(d.pid) then
+    return nil, ("the relay in the discovery file is gone (pid %d)"):format(d.pid)
   end
   local out = M._probe(attach_url(d.port, d.token))
   if not out then

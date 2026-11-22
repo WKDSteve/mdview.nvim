@@ -61,7 +61,7 @@ function M.free_port()
   error("no free port of 127.0.0.1 between 20000 and 39999")
 end
 
----@param opts? { experimental?: table, shared?: boolean, browser?: table }
+---@param opts? { experimental?: table, shared?: boolean, idle_timeout_s?: integer, browser?: table }
 ---@return boolean
 function M.setup(opts)
   opts = opts or {}
@@ -107,7 +107,7 @@ function M.setup(opts)
       require_display = false,
     }, opts.browser or {}),
     experimental = opts.experimental or {},
-    shared_relay = { enabled = opts.shared == true },
+    shared_relay = { enabled = opts.shared == true, idle_timeout_s = opts.idle_timeout_s },
   })
   return true
 end
@@ -206,6 +206,70 @@ function _G.other_instance()
   }, { text = true }, function(res)
     _G.other_exit = res.code
   end)
+  return true
+end
+
+---A pid no process has right now (`uv.kill(pid, 0)` fails with ESRCH), counting down from a high one.
+---@return integer
+local function dead_pid()
+  for pid = 4000000, 3000000, -4 do
+    local ok, _, name = vim.uv.kill(pid, 0)
+    if ok ~= 0 and name == "ESRCH" then
+      return pid
+    end
+  end
+  error("no unused pid found")
+end
+
+---The discovery file a shared relay leaves when it crashed: its pid is gone, and its port is held by another program
+---that accepts a connection but never answers HTTP (`_G.silent`, a server of this editor; a closed port is refused at
+---once over libuv, so only a silent listener makes a probe wait for its limit). `_G.stale` is what the file says.
+---@return boolean
+function _G.stale_discovery()
+  local shared = require("mdview.adapter.shared_relay")
+  vim.fn.mkdir(vim.fs.dirname(shared.discovery_path()), "p")
+  local port = M.free_port()
+  _G.silent = assert(vim.uv.new_tcp())
+  _G.silent_conns = {}
+  assert(_G.silent:bind("127.0.0.1", port))
+  assert(_G.silent:listen(8, function(err)
+    if not err then
+      local conn = assert(vim.uv.new_tcp())
+      _G.silent:accept(conn)
+      _G.silent_conns[#_G.silent_conns + 1] = conn
+    end
+  end))
+  _G.stale = { protocol = 1, port = port, token = "sheet-stale-token", pid = dead_pid() }
+  vim.fn.writefile({ vim.json.encode(_G.stale) }, shared.discovery_path())
+  return true
+end
+
+---Close the silent listener of `_G.stale_discovery()` and what it accepted.
+---@return boolean
+function _G.close_silent()
+  for _, conn in ipairs(_G.silent_conns or {}) do
+    if not conn:is_closing() then
+      conn:close()
+    end
+  end
+  if _G.silent and not _G.silent:is_closing() then
+    _G.silent:close()
+  end
+  return true
+end
+
+---Time every `discover()` of the shared relay (the real one runs): `_G.discover_ms` is the last one's milliseconds.
+---@return boolean
+function _G.time_discover()
+  local shared = require("mdview.adapter.shared_relay")
+  local real = shared.discover
+  shared.discover = function(...)
+    local t0 = vim.uv.hrtime()
+    local info, why = real(...)
+    _G.discover_ms = (vim.uv.hrtime() - t0) / 1e6
+    _G.discover_why = why
+    return info, why
+  end
   return true
 end
 

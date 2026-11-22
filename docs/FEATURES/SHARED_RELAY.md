@@ -12,7 +12,9 @@ its own relay and its own tab, as before.
   `--shared`, detached from that instance, and the relay writes its port and
   token to `stdpath("state")/mdview/relay.json` (readable by you only). A
   `:MDView start` in another instance reads that file, checks that the relay
-  answers (`GET /attach`, a stale file is ignored and replaced) and attaches:
+  answers (`GET /attach`; a stale file is ignored and replaced, and one whose
+  relay process is gone is not even asked, so a crashed relay costs no wait)
+  and attaches:
   no second relay, no second tab. The tab already open is taken over.
 - **The tab follows the focused instance.** Only the instance that owns the
   tab's room pushes into it; the others stay quiet. An instance takes the tab

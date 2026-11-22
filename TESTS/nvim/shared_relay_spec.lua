@@ -202,6 +202,53 @@ describe("shared_relay", function()
     end
   end)
 
+  it("takes a discovery file whose relay process is gone for stale without asking its port", function()
+    local file = vim.fn.tempname() .. ".json"
+    local orig_path, orig_probe, orig_alive = shared.discovery_path, shared._probe, shared._pid_alive
+    local probes, asked = 0, {}
+    shared.discovery_path = function()
+      return file
+    end
+    shared._probe = function()
+      probes = probes + 1
+      return vim.json.encode({ protocol = 1, shared = true, clients = 1, owners = {}, tabs = {} })
+    end
+    shared._pid_alive = function(pid)
+      asked[#asked + 1] = pid
+      return pid ~= 4242
+    end
+    local ok, err = pcall(function()
+      vim.fn.writefile({ vim.json.encode({ protocol = 1, port = 43300, token = "tok", pid = 4242 }) }, file)
+      local info, why = shared.discover()
+      assert.is_nil(info)
+      assert.truthy(why:find("gone (pid 4242)", 1, true), why)
+      assert.are.equal(0, probes, "no connection to the port of a dead relay")
+      assert.are.same({ 4242 }, asked)
+
+      vim.fn.writefile({ vim.json.encode({ protocol = 1, port = 43300, token = "tok", pid = 7 }) }, file)
+      assert.truthy(shared.discover(), "a relay whose process runs is probed and found")
+      assert.are.equal(1, probes)
+
+      vim.fn.writefile({ vim.json.encode({ protocol = 1, port = 43300, token = "tok" }) }, file)
+      assert.truthy(shared.discover(), "a file without a pid (an older relay) is probed as before")
+      assert.are.equal(2, probes)
+      assert.are.same({ 4242, 7 }, asked, "no pid, nothing to check")
+    end)
+    shared.discovery_path, shared._probe, shared._pid_alive = orig_path, orig_probe, orig_alive
+    pcall(os.remove, file)
+    if not ok then
+      error(err, 0)
+    end
+  end)
+
+  it("tells a running process from a gone one", function()
+    assert.is_true(shared._pid_alive(vim.fn.getpid()))
+    local job = vim.system({ "nvim", "--clean", "--headless", "+qa!" })
+    local pid = job.pid
+    assert.are.equal(0, job:wait(10000).code)
+    assert.is_false(shared._pid_alive(pid), "an ended process is gone")
+  end)
+
   it("discovers a running shared relay and refuses anything else", function()
     local file = vim.fn.tempname() .. ".json"
     local orig_path, orig_probe = shared.discovery_path, shared._probe
@@ -217,7 +264,8 @@ describe("shared_relay", function()
       assert.is_nil((shared.discover()))
       vim.fn.writefile({ "{ half a file" }, file)
       assert.is_nil((shared.discover()), "a broken discovery file is no relay")
-      vim.fn.writefile({ vim.json.encode({ protocol = 1, port = 43300, token = "tok", pid = 1 }) }, file)
+      -- This editor's pid: a process that runs, so the file is probed.
+      vim.fn.writefile({ vim.json.encode({ protocol = 1, port = 43300, token = "tok", pid = vim.fn.getpid() }) }, file)
 
       answer = nil
       assert.is_nil((shared.discover()), "a relay that does not answer is a stale file")
