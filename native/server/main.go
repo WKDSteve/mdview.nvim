@@ -183,9 +183,12 @@ func main() {
 	mux.Handle("/", fileServer)
 
 	addr := fmt.Sprintf("127.0.0.1:%d", port)
-	// Lua's runner matches this exact line to discover the port; keep the format stable.
-	fmt.Printf("Running on http://localhost:%d\n", port)
-	fmt.Printf("ws endpoint: ws://localhost:%d/ws\n", port)
+	// Bound before the port is announced: the runner polls /health as soon as
+	// it reads the line, and a refused connect costs ~2 s on Windows.
+	listener, err := listenAndAnnounce(addr, port, os.Stdout)
+	if err != nil {
+		log.Fatalf("server error: %v", err)
+	}
 
 	// Standalone mode: start the file watcher as a second content source and
 	// print (optionally open) the preview URL, since there is no Neovim here to
@@ -234,10 +237,6 @@ func main() {
 	if clients != nil {
 		ignoreSIGPIPE()
 		fmt.Println("[shared] shared relay: waiting for Neovim instances to attach")
-		listener, err := net.Listen("tcp", addr)
-		if err != nil {
-			log.Fatalf("server error: %v", err)
-		}
 		// Advertised only once the port is really bound, so an instance that
 		// reads the file can reach the relay at once.
 		if *discoveryFile != "" {
@@ -259,9 +258,22 @@ func main() {
 		return
 	}
 
-	if err := http.ListenAndServe(addr, mux); err != nil {
+	if err := http.Serve(listener, mux); err != nil {
 		log.Fatalf("server error: %v", err)
 	}
+}
+
+// listenAndAnnounce binds addr and only then writes the lines the Lua runner
+// reads (`Running on http://localhost:<port>`; keep the format stable), so the
+// first /health it sends is never refused.
+func listenAndAnnounce(addr string, port int, out io.Writer) (net.Listener, error) {
+	listener, err := net.Listen("tcp", addr)
+	if err != nil {
+		return nil, err
+	}
+	fmt.Fprintf(out, "Running on http://localhost:%d\n", port)
+	fmt.Fprintf(out, "ws endpoint: ws://localhost:%d/ws\n", port)
+	return listener, nil
 }
 
 func handleHealth(w http.ResponseWriter, _ *http.Request) {
