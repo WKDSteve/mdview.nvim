@@ -15,6 +15,13 @@ parsed into the tree (not merely escaped) specifically so it goes through the
 same sanitization pass as generated markup, rather than being a second,
 unsanitized path into the page.
 
+Line breaks follow the buffer: comrak runs with `hardbreaks`, so a newline
+inside a paragraph renders as `<br>` instead of a soft break the browser would
+collapse into a space (a run of `-> item` lines used to show up as one long
+line). Paragraph separation, lists and code blocks are unchanged. This
+deliberately differs from strict CommonMark; there is no option to switch it
+off, since the preview is meant to show what the buffer shows.
+
 - **Tab:** true
 - **Module:** `native/wasm-render/src/lib.rs` (`render_markdown`, `build_options`, `sanitizer`)
 - **Config:** `install.version` pins which relay/renderer build ships; see [../architecture.md](../architecture.md)

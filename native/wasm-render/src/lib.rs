@@ -21,6 +21,11 @@ fn build_options() -> Options<'static> {
     // into view precisely (see src/client/main.ts). Kept through sanitization by
     // allowing the attribute in sanitizer().
     options.render.sourcepos = true;
+    // Every line break of the buffer stays a line break in the preview. By default a
+    // soft break (a newline inside a paragraph) renders as a plain newline, which a browser
+    // collapses into a space, so a run of short lines ("-> a", "-> b", ...) became one
+    // long line. The preview is meant to show what the buffer shows.
+    options.render.hardbreaks = true;
     options
 }
 
@@ -319,6 +324,32 @@ pub fn render_markdown(input: &str, source_map: bool) -> String {
 #[cfg(test)]
 mod tests {
     use super::render_markdown;
+
+    // A run of consecutive lines is one paragraph in CommonMark, whose soft breaks
+    // a browser collapses into spaces: five "-> ..." lines became one "sausage".
+    // The preview shows the buffer, so every line break stays a line break.
+    #[test]
+    fn consecutive_lines_stay_separate_lines() {
+        let src =
+            "-> LiveCompare\n-> Veith HR\n-> Horizon migration\n-> KB-Artikel\n-> Tosca mobile\n";
+        for source_map in [false, true] {
+            let html = render_markdown(src, source_map);
+            assert_eq!(html.matches("<br").count(), 4, "{html}");
+            assert_eq!(paragraphs(&html), 1, "{html}");
+        }
+    }
+
+    fn paragraphs(html: &str) -> usize {
+        html.matches("<p ").count() + html.matches("<p>").count()
+    }
+
+    #[test]
+    fn paragraphs_lists_and_code_are_not_affected_by_line_breaks() {
+        let html = render_markdown("a\n\nb\n\n- x\n- y\n\n```\nc\nd\n```\n", false);
+        assert_eq!(paragraphs(&html), 2, "{html}");
+        assert_eq!(html.matches("<li").count(), 2, "{html}");
+        assert!(!html.contains("<br"), "{html}");
+    }
 
     #[test]
     fn renders_headings_and_paragraphs() {
