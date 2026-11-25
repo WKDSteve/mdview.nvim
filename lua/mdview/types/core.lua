@@ -1,4 +1,5 @@
 ---@module 'mdview.types.core'
+--- LuaLS classes for the plugin's core state (the web subsystem's handles).
 
 ---@class mdview.core.state.web
 ---@field attached boolean whether web subsystem is attached/active

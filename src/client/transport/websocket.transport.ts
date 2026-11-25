@@ -1,4 +1,5 @@
-// src/client/transport/websocket.transport.ts
+// The WebSocket transport, with reconnect while the relay is not yet listening.
+
 import type { Transport } from './transport.interface';
 
 /**

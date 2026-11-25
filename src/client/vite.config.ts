@@ -1,4 +1,5 @@
-// src/client/vite.config.ts
+// The Vite build of the browser client, with a dev proxy to the relay port.
+
 import { defineConfig } from 'vite';
 import path from 'path';
 

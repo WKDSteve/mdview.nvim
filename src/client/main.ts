@@ -1,4 +1,6 @@
-// src/client/main.ts
+// The entry of the browser client: loads the WASM renderer, follows the document over the relay's WebSocket and
+// renders every message into the page.
+
 /* Client bootstrapping:
    - Loads the Rust/WASM render+sanitize module
    - Connects to the relay's WebSocket for this document (key/token from the URL)

@@ -1,4 +1,5 @@
-// src/client/transport/transportFactory.ts
+// Picks the transport the page uses to reach the relay: WebSocket by default, WebTransport when it is asked for and the browser has it.
+
 import type { Transport } from './transport.interface';
 import { WebSocketTransport } from './websocket.transport';
 import { WebTransportTransport, supportsWebTransport } from './webtransport.transport';

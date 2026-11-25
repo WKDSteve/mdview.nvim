@@ -1,6 +1,6 @@
-// ADD: Annotations
-// src/client/transport/trabsport.interface.ts
-//
+// The contract of a transport between the page and the relay (open, receive, close); WebSocket and WebTransport
+// implement it.
+
 export interface Transport {
   /**
    * Open / initialize the transport (connect or wait for ready).
