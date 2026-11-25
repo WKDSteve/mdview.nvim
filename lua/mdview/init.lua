@@ -1,4 +1,4 @@
----@module 'mdview.init'
+---@module 'mdview'
 -- Module entrypoint for mdview.nvim.
 -- Integrates browser autostart handle storage and stop-time cleanup.
 
