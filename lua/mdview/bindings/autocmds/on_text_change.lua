@@ -1,4 +1,4 @@
----@module 'mdview.bindings.autocmds.on_text_changed'
+---@module 'mdview.bindings.autocmds.on_text_change'
 -- Live markdown push on insert/change.
 -- Dormant — not attached (see bindings/autocmds/init.lua); superseded by
 -- bindings/autocmds/live_push.lua. Kept for reference.
