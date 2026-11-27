@@ -74,7 +74,7 @@
 ---@field binary_path string|nil relay binary used by `:MDView standalone`; nil = the one `install` manages. Set this to run a locally built or newer relay than `install.version` pins (standalone needs --watch support, v0.3.0+)
 
 ---@class mdview.config.DevDefaults
----@field binary_path string|nil relay binary used by the normal `:MDView start` path; nil = the one `install` manages. Set this to run a locally built or newer relay than `install.version` pins — needed for e.g. overlay/zoom/cursor live-control (`/control` route), which postdates `install.version`'s default pin. Falls back to `$MDVIEW_DEV_BINARY` if unset (honored by `scripts/minimal_init.lua`'s detached instances, which don't load this Lua config).
+---@field binary_path string|nil relay binary used by the normal `:MDView start` path; nil = the one `install` manages. Set this to run a locally built or newer relay than `install.version` pins, e.g. a build from `main` that is ahead of the pinned release (the `/control` route of overlay/zoom/cursor live-control is in the default pin, v0.4.4, already). Falls back to `$MDVIEW_DEV_BINARY` if unset (honored by `scripts/minimal_init.lua`'s detached instances, which don't load this Lua config).
 ---@field web_root string|nil prebuilt client bundle (HTML/JS/WASM) directory used by the normal `:MDView start` path; nil = the one `install` manages. Set this alongside `binary_path` when testing local relay+client changes together (e.g. `dist/client` from `npm run build`). Falls back to `$MDVIEW_DEV_WEB_ROOT` if unset.
 
 ---@class mdview.config.ExperimentalDefaults
